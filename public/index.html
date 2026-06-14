@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TNEH BOOMER - SMS Bomber App</title>
+    <title>TNEH BOOMER - SMS Bomber</title>
     <style>
         * {
             margin: 0;
@@ -15,111 +15,143 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             padding: 20px;
         }
 
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: 500px;
+            width: 100%;
         }
 
-        /* Header */
+        .card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
         .header {
             text-align: center;
-            color: white;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
         }
 
         .header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
+            font-size: 2.5em;
             background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
         }
 
         .header p {
-            font-size: 1.2em;
-            opacity: 0.9;
+            color: #666;
+            font-size: 0.9em;
         }
 
-        /* Cards */
-        .card {
-            background: rgba(255,255,255,0.95);
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-
-        .card h2 {
-            color: #1a1a2e;
+        .input-group {
             margin-bottom: 20px;
-            border-left: 4px solid #ff6b6b;
-            padding-left: 15px;
         }
 
-        /* Inputs */
-        input, select, textarea {
-            padding: 12px 15px;
-            margin: 10px 5px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input, select {
             width: 100%;
-            max-width: 350px;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #ff6b6b;
         }
 
         button {
-            padding: 12px 25px;
+            width: 100%;
+            padding: 14px;
             background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
             color: white;
             border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: transform 0.2s;
+            border-radius: 10px;
+            font-size: 1.1em;
             font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
         }
 
         button:hover {
             transform: translateY(-2px);
         }
 
+        button:active {
+            transform: translateY(0);
+        }
+
         .result {
             margin-top: 20px;
             padding: 15px;
-            background: #f9f9f9;
-            border-radius: 8px;
+            border-radius: 10px;
             display: none;
-            overflow-x: auto;
-            max-height: 500px;
+            font-size: 0.9em;
         }
 
         .result.show {
             display: block;
         }
 
-        .error { color: red; }
-        .success { color: green; }
-        .info { color: blue; }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
 
         .key-badge {
-            background: #e0e7ff;
+            background: #2d3748;
+            color: #fff;
             padding: 10px;
             border-radius: 8px;
             font-family: monospace;
-            margin: 10px 0;
+            font-size: 0.8em;
             word-break: break-all;
+            margin: 10px 0;
         }
 
-        /* Developer Info */
+        .small-btn {
+            background: #4a5568;
+            margin-top: 10px;
+            font-size: 0.9em;
+            width: auto;
+            padding: 8px 15px;
+        }
+
         .dev-info {
-            background: linear-gradient(135deg, #ff6b6b20, #4ecdc420);
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
             text-align: center;
+            margin-top: 20px;
+            color: #888;
+            font-size: 0.8em;
         }
 
         .dev-info a {
@@ -127,179 +159,137 @@
             text-decoration: none;
         }
 
-        /* Navigation */
-        .nav {
+        .tabs {
             display: flex;
             gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
-        .nav-btn {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
-        }
-
-        .nav-btn.active {
-            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
-        }
-
-        /* Stats */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
+        .tab {
+            flex: 1;
+            padding: 10px;
             background: #f0f0f0;
-            padding: 15px;
+            border: none;
             border-radius: 10px;
-            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
         }
 
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: #ff6b6b;
+        .tab.active {
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            color: white;
         }
 
-        @media (max-width: 768px) {
-            input {
-                max-width: 100%;
-            }
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>💣 TNEH BOOMER APP</h1>
-            <p>SMS Bomber & Spam Tool - Use Responsibly</p>
-        </div>
-
-        <!-- Navigation -->
-        <div class="nav">
-            <button class="nav-btn" onclick="showPage('bomber')">💣 SMS Bomber</button>
-            <button class="nav-btn" onclick="showPage('keygen')">🔑 Generate Key</button>
-            <button class="nav-btn" onclick="showPage('check')">✅ Check Key</button>
-            <button class="nav-btn" onclick="showPage('apis')">📡 API List</button>
-            <button class="nav-btn" onclick="showPage('docs')">📖 Documentation</button>
-        </div>
-
-        <!-- SMS Bomber Page -->
-        <div id="bomberPage" class="card active">
-            <h2>💣 SMS Bomber</h2>
-            <input type="text" id="apiKey" placeholder="Enter your API Key">
-            <input type="text" id="phoneNumber" placeholder="Target Number (eg: 017XXXXXXXX)">
-            <input type="number" id="smsCount" placeholder="Number of SMS (1-100)" value="10" min="1" max="100">
-            <button onclick="startBombing()">💣 START BOMBING</button>
-            <div id="bombResult" class="result"></div>
-        </div>
-
-        <!-- Generate Key Page -->
-        <div id="keygenPage" class="card">
-            <h2>🔑 Generate API Key</h2>
-            <p>Generate a 30-day API key for TNEH BOOMER</p>
-            <button onclick="generateKey()">Generate 30-Day Key</button>
-            <div id="keyResult" class="result"></div>
-        </div>
-
-        <!-- Check Key Page -->
-        <div id="checkPage" class="card">
-            <h2>✅ Check API Key Status</h2>
-            <input type="text" id="checkKeyInput" placeholder="Enter your API Key">
-            <button onclick="checkKey()">Check Key</button>
-            <div id="checkResult" class="result"></div>
-        </div>
-
-        <!-- API List Page -->
-        <div id="apisPage" class="card">
-            <h2>📡 Available SMS APIs</h2>
-            <button onclick="loadApis()">Load All APIs</button>
-            <div id="apisResult" class="result"></div>
-        </div>
-
-        <!-- Documentation Page -->
-        <div id="docsPage" class="card">
-            <h2>📖 API Documentation</h2>
-            
-            <h3>Base URL:</h3>
-            <div class="key-badge">https://tnehboomber.onrender.com</div>
-
-            <h3>1. Generate API Key</h3>
-            <div class="key-badge">GET /api/expiredate=30&createkey</div>
-
-            <h3>2. Check API Key</h3>
-            <div class="key-badge">GET /api/checkkey?key=YOUR_KEY</div>
-
-            <h3>3. SMS Bomber (Multiple SMS)</h3>
-            <div class="key-badge">GET /api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=10</div>
-
-            <h3>4. Single SMS Send</h3>
-            <div class="key-badge">GET /api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1</div>
-
-            <h3>5. Get All APIs</h3>
-            <div class="key-badge">GET /api/apis</div>
-
-            <h3>6. Health Check</h3>
-            <div class="key-badge">GET /api/health</div>
-
-            <h3>cURL Examples:</h3>
-            <div class="key-badge">
-                # Generate Key<br>
-                curl https://tnehboomber.onrender.com/api/expiredate=30&createkey<br><br>
-                # Start Bombing<br>
-                curl "https://tnehboomber.onrender.com/api/spam?key=TNEH-XXXX&number=017XXXXXXXX&count=10"
+        <div class="card">
+            <div class="header">
+                <h1>💣 TNEH BOOMER</h1>
+                <p>SMS Bomber Tool</p>
             </div>
-        </div>
 
-        <!-- Developer Info -->
-        <div class="dev-info">
-            <p><strong>👨‍💻 Developer:</strong> TNEH GROUP</p>
-            <p><strong>📱 Telegram:</strong> <a href="https://t.me/tneh_owner" target="_blank">@tneh_owner</a></p>
-            <p><strong>🌐 Website:</strong> <a href="https://tnehboomber.onrender.com" target="_blank">tnehboomber.onrender.com</a></p>
-            <p><strong>⚠️ Warning:</strong> Use responsibly. For educational purposes only.</p>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('bomber')">💣 BOMBER</button>
+                <button class="tab" onclick="switchTab('key')">🔑 GET KEY</button>
+                <button class="tab" onclick="switchTab('check')">✅ CHECK KEY</button>
+            </div>
+
+            <!-- Bomber Tab -->
+            <div id="bomberTab" class="tab-content active">
+                <div class="input-group">
+                    <label>🔑 API Key</label>
+                    <input type="text" id="apiKey" placeholder="Enter your API key">
+                </div>
+                <div class="input-group">
+                    <label>📱 Target Number</label>
+                    <input type="tel" id="phoneNumber" placeholder="017XXXXXXXX">
+                </div>
+                <div class="input-group">
+                    <label>💥 SMS Count (1-20)</label>
+                    <input type="number" id="smsCount" value="10" min="1" max="20">
+                </div>
+                <button onclick="startBombing()">💣 START BOMBING</button>
+                <div id="bombResult" class="result"></div>
+            </div>
+
+            <!-- Get Key Tab -->
+            <div id="keyTab" class="tab-content">
+                <button onclick="generateKey()">🔑 Generate 30-Day API Key</button>
+                <div id="keyResult" class="result"></div>
+            </div>
+
+            <!-- Check Key Tab -->
+            <div id="checkTab" class="tab-content">
+                <div class="input-group">
+                    <label>🔑 API Key</label>
+                    <input type="text" id="checkKeyInput" placeholder="Enter API key">
+                </div>
+                <button onclick="checkKey()">✅ Check Key Status</button>
+                <div id="checkResult" class="result"></div>
+            </div>
+
+            <div class="dev-info">
+                <p>👨‍💻 <strong>TNEH GROUP</strong> | 📱 <a href="https://t.me/tneh_owner" target="_blank">@tneh_owner</a></p>
+                <p>⚠️ For educational purposes only</p>
+            </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = 'https://tnehboomber.onrender.com';
+        // Use relative URL or current domain
+        const API_BASE = window.location.origin;
 
-        function showPage(page) {
-            const pages = ['bomber', 'keygen', 'check', 'apis', 'docs'];
-            pages.forEach(p => {
-                const el = document.getElementById(p + 'Page');
-                if (el) el.classList.remove('active');
-            });
-            document.getElementById(page + 'Page').classList.add('active');
+        function switchTab(tab) {
+            // Update tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            if (tab === 'bomber') document.querySelector('.tab:first-child').classList.add('active');
+            else if (tab === 'key') document.querySelectorAll('.tab')[1].classList.add('active');
+            else document.querySelectorAll('.tab')[2].classList.add('active');
+
+            // Update content
+            document.getElementById('bomberTab').classList.remove('active');
+            document.getElementById('keyTab').classList.remove('active');
+            document.getElementById('checkTab').classList.remove('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
         }
 
         async function generateKey() {
             const resultDiv = document.getElementById('keyResult');
+            resultDiv.innerHTML = '<div class="info">⏳ Generating key...</div>';
+            resultDiv.classList.add('show');
+            
             try {
                 const response = await fetch(`${API_BASE}/api/expiredate=30&createkey`);
                 const data = await response.json();
                 
+                console.log('Key generation response:', data);
+                
                 if (data.success) {
                     resultDiv.innerHTML = `
                         <div class="success">
-                            <strong>✅ API Key Generated!</strong><br>
-                            <div class="key-badge"><strong>Key:</strong> ${data.api_key}</div>
-                            <strong>Valid for:</strong> ${data.valid_days} days<br>
-                            <strong>Expires:</strong> ${new Date(data.expiry_date).toLocaleString()}<br>
-                            <button onclick="copyToClipboard('${data.api_key}')">Copy Key</button>
+                            <strong>✅ Key Generated Successfully!</strong>
+                            <div class="key-badge">${data.api_key}</div>
+                            <strong>📅 Valid for:</strong> ${data.valid_days} days<br>
+                            <strong>⏰ Expires:</strong> ${new Date(data.expiry_date).toLocaleString()}
+                            <button class="small-btn" onclick="copyKey('${data.api_key}')">📋 Copy Key</button>
                         </div>
                     `;
                 } else {
-                    resultDiv.innerHTML = `<div class="error">❌ Failed to generate key</div>`;
+                    resultDiv.innerHTML = `<div class="error">❌ ${data.error || 'Failed to generate key'}</div>`;
                 }
-                resultDiv.classList.add('show');
             } catch (error) {
-                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-                resultDiv.classList.add('show');
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Connection error: ${error.message}<br>Make sure the server is running</div>`;
             }
         }
 
@@ -313,25 +303,29 @@
                 return;
             }
             
+            resultDiv.innerHTML = '<div class="info">⏳ Checking key status...</div>';
+            resultDiv.classList.add('show');
+            
             try {
                 const response = await fetch(`${API_BASE}/api/checkkey?key=${key}`);
                 const data = await response.json();
+                
+                console.log('Check key response:', data);
                 
                 if (data.valid) {
                     resultDiv.innerHTML = `
                         <div class="success">
                             <strong>✅ Key is VALID</strong><br>
-                            <strong>Status:</strong> ${data.status}<br>
-                            <strong>Expires:</strong> ${new Date(data.expiry_date).toLocaleString()}
+                            <strong>📅 Expires:</strong> ${new Date(data.expiry_date).toLocaleString()}<br>
+                            <strong>Status:</strong> ${data.status}
                         </div>
                     `;
                 } else {
                     resultDiv.innerHTML = `<div class="error">❌ Key is INVALID or EXPIRED</div>`;
                 }
-                resultDiv.classList.add('show');
             } catch (error) {
-                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-                resultDiv.classList.add('show');
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Connection error: ${error.message}</div>`;
             }
         }
 
@@ -341,73 +335,49 @@
             const count = document.getElementById('smsCount').value;
             const resultDiv = document.getElementById('bombResult');
             
-            if (!key || !number) {
-                resultDiv.innerHTML = `<div class="error">❌ Please enter API Key and Phone Number</div>`;
+            if (!key) {
+                resultDiv.innerHTML = `<div class="error">❌ Please enter API Key</div>`;
                 resultDiv.classList.add('show');
                 return;
             }
             
-            resultDiv.innerHTML = `<div class="info">⏳ Starting SMS bombing... Please wait...</div>`;
+            if (!number) {
+                resultDiv.innerHTML = `<div class="error">❌ Please enter target number</div>`;
+                resultDiv.classList.add('show');
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="info">⏳ Sending SMS bombs... Please wait...</div>';
             resultDiv.classList.add('show');
             
             try {
                 const response = await fetch(`${API_BASE}/api/spam?key=${key}&number=${number}&count=${count}`);
                 const data = await response.json();
                 
+                console.log('Bombing response:', data);
+                
                 if (data.success) {
                     resultDiv.innerHTML = `
                         <div class="success">
                             <strong>✅ Bombing Complete!</strong><br>
-                            <strong>Target:</strong> ${data.target_number}<br>
-                            <strong>Total Sent:</strong> ${data.total_requests_sent}<br>
-                            <strong>Successful:</strong> ${data.successful_requests}<br>
-                            <strong>Failed:</strong> ${data.failed_requests}<br>
-                            <details>
-                                <summary>View Details</summary>
-                                <pre>${JSON.stringify(data.results, null, 2)}</pre>
-                            </details>
+                            📱 Target: ${data.target_number}<br>
+                            💥 Total Sent: ${data.total_requests_sent}<br>
+                            ✅ Successful: ${data.successful_requests}<br>
+                            ❌ Failed: ${data.failed_requests}
                         </div>
                     `;
                 } else {
-                    resultDiv.innerHTML = `<div class="error">❌ Error: ${data.error}</div>`;
+                    resultDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
                 }
             } catch (error) {
-                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Connection error: ${error.message}</div>`;
             }
         }
 
-        async function loadApis() {
-            const resultDiv = document.getElementById('apisResult');
-            resultDiv.innerHTML = `<div class="info">⏳ Loading APIs...</div>`;
-            resultDiv.classList.add('show');
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/apis`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    let html = `<div class="success"><strong>✅ Total APIs Available: ${data.total_apis}</strong></div><br>`;
-                    html += '<div style="max-height: 400px; overflow-y: auto;">';
-                    data.all_apis.forEach(api => {
-                        html += `
-                            <div class="key-badge">
-                                <strong>${api.api_name}</strong><br>
-                                Endpoint: ${api.api_endpoint}<br>
-                                <small>Example: ${api.api_example}</small>
-                            </div>
-                        `;
-                    });
-                    html += '</div>';
-                    resultDiv.innerHTML = html;
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
-            }
-        }
-
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text);
-            alert('Copied to clipboard!');
+        function copyKey(key) {
+            navigator.clipboard.writeText(key);
+            alert('✅ API Key copied to clipboard!');
         }
     </script>
 </body>
