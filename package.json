@@ -1,0 +1,19 @@
+{
+  "name": "tneh-boomer-app",
+  "version": "1.0.0",
+  "description": "TNEH BOOMER - SMS Spam & Bomber API",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
