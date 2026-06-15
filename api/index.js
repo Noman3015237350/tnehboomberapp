@@ -27,23 +27,34 @@ const DEVELOPER_INFO = {
 // File path for storing keys
 const KEYS_FILE = path.join(__dirname, 'keys.json');
 
+// Initialize keys.json if it doesn't exist
+function initKeysFile() {
+  try {
+    if (!fs.existsSync(KEYS_FILE)) {
+      fs.writeFileSync(KEYS_FILE, JSON.stringify({}, null, 2));
+      console.log('✅ Created keys.json file');
+    }
+  } catch (error) {
+    console.error('Error creating keys.json:', error.message);
+  }
+}
+
 // Load keys from file
 function loadKeys() {
   try {
-    if (fs.existsSync(KEYS_FILE)) {
-      const data = fs.readFileSync(KEYS_FILE, 'utf8');
-      const parsed = JSON.parse(data);
-      // Convert object back to Map
-      const keysMap = new Map();
-      Object.entries(parsed).forEach(([key, value]) => {
-        keysMap.set(key, new Date(value));
-      });
-      return keysMap;
-    }
+    initKeysFile();
+    const data = fs.readFileSync(KEYS_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    const keysMap = new Map();
+    Object.entries(parsed).forEach(([key, value]) => {
+      keysMap.set(key, new Date(value));
+    });
+    console.log(`📋 Loaded ${keysMap.size} keys from keys.json`);
+    return keysMap;
   } catch (error) {
     console.error('Error loading keys:', error.message);
+    return new Map();
   }
-  return new Map();
 }
 
 // Save keys to file
@@ -54,23 +65,23 @@ function saveKeys(keysMap) {
       obj[key] = value.toISOString();
     }
     fs.writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2));
+    console.log(`💾 Saved ${keysMap.size} keys to keys.json`);
+    return true;
   } catch (error) {
     console.error('Error saving keys:', error.message);
+    return false;
   }
 }
 
 // API Keys storage (persistent)
 let validKeys = loadKeys();
 
-// Save keys periodically (every time a key is added)
-function persistKeys() {
-  saveKeys(validKeys);
-}
-
 // Generate API Key
 function generateApiKey() {
-  return 'TNEH-' + Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 8).toUpperCase();
+  const prefix = 'TNEH';
+  const random = Math.random().toString(36).substring(2, 15) + 
+                  Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `${prefix}-${random}`;
 }
 
 // Check if key is valid
@@ -88,10 +99,11 @@ function cleanExpiredKeys() {
     if (now > expiryDate) {
       validKeys.delete(key);
       changed = true;
+      console.log(`🗑️ Removed expired key: ${key}`);
     }
   }
   if (changed) {
-    persistKeys();
+    saveKeys(validKeys);
   }
 }
 
@@ -154,6 +166,8 @@ async function sendSMS(apiEndpoint, number) {
   }
 }
 
+// ==================== API ENDPOINTS ====================
+
 // Root endpoint
 app.get('/', async (req, res) => {
   const apiData = await getLMNx9APIs();
@@ -179,6 +193,52 @@ app.get('/', async (req, res) => {
       all_apis: "/api/apis",
       health: "/api/health"
     }
+  });
+});
+
+// Generate API Key (30 days)
+app.get('/api/expiredate=30&createkey', (req, res) => {
+  const apiKey = generateApiKey();
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 30);
+  
+  validKeys.set(apiKey, expiryDate);
+  const saved = saveKeys(validKeys);
+  
+  res.json({
+    success: true,
+    api_key: apiKey,
+    expiry_date: expiryDate.toISOString(),
+    valid_days: 30,
+    developer: DEVELOPER_INFO,
+    message: "API key generated successfully. Valid for 30 days.",
+    saved_to_file: saved,
+    note: "Save this key! It won't be shown again."
+  });
+});
+
+// Check API Key
+app.get('/api/checkkey', (req, res) => {
+  const { key } = req.query;
+  
+  if (!key) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing API key parameter',
+      developer: DEVELOPER_INFO
+    });
+  }
+  
+  const isValid = isKeyValid(key);
+  const expiryDate = validKeys.get(key);
+  
+  res.json({
+    success: true,
+    valid: isValid,
+    api_key: key,
+    expiry_date: expiryDate ? expiryDate.toISOString() : null,
+    status: isValid ? 'active' : 'invalid or expired',
+    developer: DEVELOPER_INFO
   });
 });
 
@@ -283,51 +343,6 @@ app.get('/api/send', async (req, res) => {
   });
 });
 
-// Generate API Key (30 days)
-app.get('/api/expiredate=30&createkey', (req, res) => {
-  const apiKey = generateApiKey();
-  const expiryDate = new Date();
-  expiryDate.setDate(expiryDate.getDate() + 30);
-  
-  validKeys.set(apiKey, expiryDate);
-  persistKeys(); // Save to file immediately
-  
-  res.json({
-    success: true,
-    api_key: apiKey,
-    expiry_date: expiryDate.toISOString(),
-    valid_days: 30,
-    developer: DEVELOPER_INFO,
-    message: "API key generated successfully. Valid for 30 days.",
-    note: "Save this key! It won't be shown again."
-  });
-});
-
-// Check API Key
-app.get('/api/checkkey', (req, res) => {
-  const { key } = req.query;
-  
-  if (!key) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing API key parameter',
-      developer: DEVELOPER_INFO
-    });
-  }
-  
-  const isValid = isKeyValid(key);
-  const expiryDate = validKeys.get(key);
-  
-  res.json({
-    success: true,
-    valid: isValid,
-    api_key: key,
-    expiry_date: expiryDate ? expiryDate.toISOString() : null,
-    status: isValid ? 'active' : 'invalid or expired',
-    developer: DEVELOPER_INFO
-  });
-});
-
 // Get all available APIs
 app.get('/api/apis', async (req, res) => {
   const currentTime = new Date().toLocaleTimeString('en-US', {
@@ -359,30 +374,7 @@ app.get('/api/apis', async (req, res) => {
   }
 });
 
-// Get all saved keys (Admin only - for debugging)
-app.get('/api/admin/keys', (req, res) => {
-  const { admin_key } = req.query;
-  // Simple admin check
-  if (admin_key !== 'TNEH_ADMIN_2024') {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  
-  const keys = [];
-  for (const [key, expiryDate] of validKeys.entries()) {
-    keys.push({
-      key: key,
-      expiry: expiryDate.toISOString(),
-      valid: new Date() < expiryDate
-    });
-  }
-  
-  res.json({
-    total_keys: keys.length,
-    keys: keys
-  });
-});
-
-// Get specific API
+// Get specific API (api1 to api110)
 app.get('/api/api:num', async (req, res) => {
   const { key, number } = req.query;
   const apiNum = req.params.num;
@@ -422,6 +414,44 @@ app.get('/api/api:num', async (req, res) => {
   });
 });
 
+// View all saved keys (Admin endpoint)
+app.get('/api/admin/keys', (req, res) => {
+  try {
+    if (fs.existsSync(KEYS_FILE)) {
+      const data = fs.readFileSync(KEYS_FILE, 'utf8');
+      const keys = JSON.parse(data);
+      
+      // Count valid keys
+      const now = new Date();
+      let validCount = 0;
+      for (const [key, expiry] of Object.entries(keys)) {
+        if (new Date(expiry) > now) validCount++;
+      }
+      
+      res.json({
+        success: true,
+        total_keys: Object.keys(keys).length,
+        valid_keys: validCount,
+        expired_keys: Object.keys(keys).length - validCount,
+        keys: keys,
+        file_path: KEYS_FILE
+      });
+    } else {
+      res.json({
+        success: true,
+        total_keys: 0,
+        keys: {},
+        message: "keys.json file not created yet"
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   const currentTime = new Date().toLocaleTimeString('en-US', {
@@ -431,6 +461,12 @@ app.get('/api/health', (req, res) => {
     hour12: true
   });
   
+  // Count valid keys
+  let validCount = 0;
+  for (const [key, expiryDate] of validKeys.entries()) {
+    if (new Date() < expiryDate) validCount++;
+  }
+  
   res.json({
     status: 'active',
     developer: DEVELOPER_INFO,
@@ -438,7 +474,9 @@ app.get('/api/health', (req, res) => {
     req_time: currentTime,
     uptime: process.uptime(),
     total_apis: SMS_APIS.length,
-    total_active_keys: validKeys.size,
+    total_keys: validKeys.size,
+    valid_keys: validCount,
+    keys_file_exists: fs.existsSync(KEYS_FILE),
     api_range: "API 1 to API 110",
     endpoints: {
       root: "/",
@@ -447,7 +485,8 @@ app.get('/api/health', (req, res) => {
       spam_bomber: "/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=110",
       single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1",
       specific_api: "/api/api1?key=YOUR_KEY&number=017XXXXXXXX",
-      all_apis: "/api/apis"
+      all_apis: "/api/apis",
+      admin_keys: "/api/admin/keys"
     }
   });
 });
@@ -473,10 +512,11 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ TNEH BOOMER APP running on port ${PORT}`);
+  console.log(`\n✅ TNEH BOOMER APP running on port ${PORT}`);
   console.log(`🌐 Website URL: https://tnehboomber.onrender.com`);
   console.log(`👨‍💻 Developer: ${DEVELOPER_INFO.developer}`);
   console.log(`📱 Telegram: ${DEVELOPER_INFO.telegram}`);
   console.log(`📡 Total SMS APIs: ${SMS_APIS.length} (API 1 to API 110)`);
-  console.log(`💾 Loaded ${validKeys.size} saved API keys from storage`);
+  console.log(`💾 Keys file: ${KEYS_FILE}`);
+  console.log(`📋 Loaded ${validKeys.size} saved API keys\n`);
 });
