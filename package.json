@@ -1,7 +1,7 @@
 {
   "name": "tneh-boomer-app",
   "version": "1.0.0",
-  "description": "TNEH BOOMER - SMS Spam & Bomber API",
+  "description": "TNEH BOOMER - SMS Spam & Bomber API with 110+ APIs",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",
@@ -18,5 +18,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
-  }
+  },
+  "keywords": ["sms", "bomber", "tneh", "api"],
+  "author": "TNEH GROUP",
+  "license": "MIT"
 }
