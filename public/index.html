@@ -3,382 +3,2437 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TNEH BOOMER - SMS Bomber</title>
+    <meta name="description" content="TNEH Ethical Hacker Group BD - A community dedicated to cybersecurity education, ethical hacking, digital security awareness, and responsible technology practices.">
+    <meta name="keywords" content="TNEH, Ethical Hacker, Cybersecurity, Bangladesh, Security Research, Bug Bounty, CTF">
+    <title>TNEH Ethical Hacker Group BD</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        * {
+        /* =============================================
+           CSS RESET & ROOT VARIABLES
+        ============================================= */
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        :root {
+            --primary-green: #00ff41;
+            --secondary-green: #00cc33;
+            --dark-green: #003300;
+            --accent-cyan: #00ffff;
+            --accent-red: #ff0033;
+            --bg-dark: #020d02;
+            --bg-card: #060f06;
+            --bg-card-hover: #091509;
+            --border-color: #00ff4133;
+            --border-bright: #00ff41;
+            --text-primary: #00ff41;
+            --text-secondary: #a0ffa0;
+            --text-muted: #4a8a4a;
+            --text-white: #e0ffe0;
+            --shadow-green: 0 0 20px rgba(0, 255, 65, 0.3);
+            --shadow-green-strong: 0 0 40px rgba(0, 255, 65, 0.6);
+            --glow-text: 0 0 10px rgba(0, 255, 65, 0.8);
+        }
+
+        /* =============================================
+           BASE STYLES
+        ============================================= */
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 16px;
+            line-height: 1.7;
             min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated matrix background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at top left, rgba(0, 80, 0, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, rgba(0, 60, 0, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* =============================================
+           MATRIX RAIN CANVAS
+        ============================================= */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.05;
+            pointer-events: none;
+        }
+
+        /* =============================================
+           SCROLLBAR STYLING
+        ============================================= */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-green);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-cyan);
+        }
+
+        /* =============================================
+           NAVIGATION BAR
+        ============================================= */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(2, 13, 2, 0.95);
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            padding: 0 20px;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
             display: flex;
-            justify-content: center;
             align-items: center;
-            padding: 20px;
+            justify-content: space-between;
+            height: 65px;
         }
 
-        .container {
-            max-width: 500px;
-            width: 100%;
-        }
-
-        .card {
-            background: rgba(255,255,255,0.95);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            color: #666;
-            font-size: 0.9em;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 600;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1em;
-            transition: all 0.3s;
-        }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: #ff6b6b;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s;
-            margin-top: 10px;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 10px;
-            display: none;
-            font-size: 0.9em;
-        }
-
-        .result.show {
-            display: block;
-        }
-
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .key-badge {
-            background: #2d3748;
-            color: #fff;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.8em;
-            word-break: break-all;
-            margin: 10px 0;
-        }
-
-        .small-btn {
-            background: #4a5568;
-            margin-top: 10px;
-            font-size: 0.9em;
-            width: auto;
-            padding: 8px 15px;
-        }
-
-        .dev-info {
-            text-align: center;
-            margin-top: 20px;
-            color: #888;
-            font-size: 0.8em;
-        }
-
-        .dev-info a {
-            color: #ff6b6b;
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
             text-decoration: none;
         }
 
-        .tabs {
+        .nav-logo-icon {
+            width: 42px;
+            height: 42px;
+            border: 2px solid var(--primary-green);
+            border-radius: 8px;
             display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 14px;
+            color: var(--primary-green);
+            box-shadow: var(--shadow-green);
+            animation: pulse-border 2s infinite;
         }
 
-        .tab {
-            flex: 1;
-            padding: 10px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            color: #666;
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 65, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(0, 255, 65, 0.8); }
         }
 
-        .tab.active {
-            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
-            color: white;
+        .nav-logo-text {
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+            letter-spacing: 1px;
         }
 
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
+        .nav-logo-text span {
             display: block;
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 5px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-green);
+            border-color: var(--border-color);
+            background: rgba(0, 255, 65, 0.05);
+            text-shadow: var(--glow-text);
+        }
+
+        /* Hamburger menu for mobile */
+        .nav-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .nav-toggle span {
+            display: block;
+            width: 25px;
+            height: 2px;
+            background: var(--primary-green);
+            transition: all 0.3s ease;
+        }
+
+        /* =============================================
+           MAIN WRAPPER
+        ============================================= */
+        .main-wrapper {
+            position: relative;
+            z-index: 1;
+            padding-top: 65px;
+        }
+
+        /* =============================================
+           HERO SECTION
+        ============================================= */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 80px 20px 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Scan line effect */
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-green), transparent);
+            animation: scan-line 4s linear infinite;
+        }
+
+        @keyframes scan-line {
+            0% { top: -2px; }
+            100% { top: 100%; }
+        }
+
+        .hero-content {
+            max-width: 900px;
+            position: relative;
+        }
+
+        /* Terminal header box */
+        .terminal-header {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px 8px 0 0;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0;
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ff5f57; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #28ca41; }
+
+        .terminal-title {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: 10px;
+        }
+
+        .terminal-body {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 40px 40px;
+            margin-bottom: 40px;
+        }
+
+        /* Hacker logo / shield icon */
+        .hero-shield {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            position: relative;
+        }
+
+        .hero-shield svg {
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 65, 0.6));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .hero-badge {
+            display: inline-block;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+            padding: 4px 16px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            animation: blink 2s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .hero-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(28px, 5vw, 56px);
+            font-weight: 900;
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+            line-height: 1.2;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        .hero-title .highlight {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+        }
+
+        .hero-subtitle {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(12px, 2vw, 16px);
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            letter-spacing: 3px;
+        }
+
+        .hero-description {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 750px;
+            margin: 0 auto 40px;
+            line-height: 1.8;
+        }
+
+        /* CTA Buttons */
+        .hero-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            border-radius: 6px;
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: var(--primary-green);
+            border-color: var(--primary-green);
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            background: transparent;
+            color: var(--primary-green);
+            box-shadow: var(--shadow-green-strong);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 255, 65, 0.1);
+            box-shadow: var(--shadow-green);
+        }
+
+        /* Stats bar */
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            flex-wrap: wrap;
+            margin-top: 50px;
+            padding-top: 40px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-family: 'Orbitron', monospace;
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+            display: block;
+        }
+
+        .stat-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+        }
+
+        /* =============================================
+           SECTION BASE STYLES
+        ============================================= */
+        section {
+            padding: 80px 20px;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Section header */
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-tag {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-cyan);
+            letter-spacing: 4px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(22px, 4vw, 36px);
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+            margin-bottom: 15px;
+        }
+
+        .section-divider {
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-green), transparent);
+            margin: 15px auto 20px;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Alternating section backgrounds */
+        section:nth-child(even) {
+            background: rgba(0, 20, 0, 0.3);
+        }
+
+        /* =============================================
+           ABOUT SECTION
+        ============================================= */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            align-items: center;
+        }
+
+        .about-text p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.9;
+        }
+
+        .about-visual {
+            position: relative;
+        }
+
+        /* Animated terminal/code block */
+        .code-block {
+            background: #000;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+        }
+
+        .code-block-header {
+            background: rgba(0, 255, 65, 0.05);
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-block-header .dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .code-block-header .dots span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .code-block-body {
+            padding: 20px;
+            line-height: 2;
+        }
+
+        .code-line {
+            display: flex;
+            gap: 15px;
+        }
+
+        .code-num {
+            color: var(--text-muted);
+            min-width: 20px;
+        }
+
+        .code-content .kw { color: #ff79c6; }
+        .code-content .str { color: #f1fa8c; }
+        .code-content .fn { color: #50fa7b; }
+        .code-content .cm { color: #6272a4; }
+        .code-content .var { color: #8be9fd; }
+
+        /* =============================================
+           MISSION SECTION
+        ============================================= */
+        .mission-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .mission-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mission-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-green), transparent);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .mission-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .mission-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(0, 255, 65, 0.4);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-green);
+        }
+
+        .mission-icon {
+            font-size: 28px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .mission-card h3 {
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            color: var(--primary-green);
+            margin-bottom: 10px;
+        }
+
+        .mission-card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* =============================================
+           VISION SECTION
+        ============================================= */
+        .vision-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 50px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vision-box::before {
+            content: '"';
+            position: absolute;
+            top: -20px;
+            left: 30px;
+            font-size: 150px;
+            color: rgba(0, 255, 65, 0.05);
+            font-family: Georgia, serif;
+            line-height: 1;
+        }
+
+        .vision-text {
+            font-size: clamp(16px, 2.5vw, 22px);
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-style: italic;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .vision-text em {
+            color: var(--primary-green);
+            font-style: normal;
+            text-shadow: var(--glow-text);
+        }
+
+        /* =============================================
+           WHAT WE DO SECTION
+        ============================================= */
+        .topics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .topic-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+
+        .topic-item:hover {
+            border-color: var(--primary-green);
+            background: rgba(0, 255, 65, 0.05);
+            transform: translateX(5px);
+            box-shadow: -3px 0 15px rgba(0, 255, 65, 0.2);
+        }
+
+        .topic-icon {
+            font-size: 22px;
+            min-width: 30px;
+        }
+
+        .topic-name {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* =============================================
+           COMMUNITY VALUES
+        ============================================= */
+        .values-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .value-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .value-card:hover {
+            border-color: var(--primary-green);
+            box-shadow: var(--shadow-green);
+            transform: scale(1.03);
+        }
+
+        .value-number {
+            font-family: 'Orbitron', monospace;
+            font-size: 40px;
+            font-weight: 900;
+            color: rgba(0, 255, 65, 0.1);
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            line-height: 1;
+        }
+
+        .value-emoji {
+            font-size: 30px;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .value-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 13px;
+            color: var(--primary-green);
+            font-weight: 700;
+        }
+
+        /* =============================================
+           WHY CHOOSE US
+        ============================================= */
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+        }
+
+        .why-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .why-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(0, 255, 65, 0.5);
+            transform: translateY(-8px);
+            box-shadow: 0 15px 40px rgba(0, 255, 65, 0.15);
+        }
+
+        .why-icon {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        .why-card h3 {
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            color: var(--primary-green);
+            margin-bottom: 10px;
+        }
+
+        .why-card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* =============================================
+           COMMUNITY RULES
+        ============================================= */
+        .rules-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .rule-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            padding: 20px 25px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .rule-item:hover {
+            border-color: var(--primary-green);
+            background: rgba(0, 255, 65, 0.03);
+            transform: translateX(8px);
+        }
+
+        .rule-number {
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 900;
+            color: var(--primary-green);
+            min-width: 35px;
+            text-shadow: var(--glow-text);
+        }
+
+        .rule-text {
+            color: var(--text-secondary);
+            font-size: 16px;
+            padding-top: 2px;
+        }
+
+        /* =============================================
+           LEADERSHIP TEAM
+        ============================================= */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 25px;
+        }
+
+        .team-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 35px 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .team-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-green), var(--accent-cyan), var(--primary-green));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .team-card:hover::after {
+            transform: scaleX(1);
+        }
+
+        .team-card:hover {
+            border-color: rgba(0, 255, 65, 0.4);
+            transform: translateY(-10px);
+            box-shadow: 0 20px 50px rgba(0, 255, 65, 0.15);
+        }
+
+        /* Avatar with hacker icon */
+        .team-avatar {
+            width: 85px;
+            height: 85px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            border: 2px solid var(--primary-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            background: rgba(0, 255, 65, 0.05);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+            position: relative;
+        }
+
+        /* Rotating ring */
+        .team-avatar::before {
+            content: '';
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 1px dashed rgba(0, 255, 65, 0.3);
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .team-role {
+            display: inline-block;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 3px 12px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+
+        .team-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+        }
+
+        /* Owner special styling */
+        .team-card.owner {
+            border-color: rgba(0, 255, 65, 0.6);
+        }
+
+        .team-card.owner .team-role {
+            color: var(--primary-green);
+            border-color: rgba(0, 255, 65, 0.5);
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        /* =============================================
+           CONTACT SECTION
+        ============================================= */
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .contact-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 25px 30px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .contact-card:hover {
+            border-color: var(--primary-green);
+            background: rgba(0, 255, 65, 0.05);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-green);
+        }
+
+        .contact-icon {
+            font-size: 30px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .contact-info {
+            flex: 1;
+        }
+
+        .contact-label {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .contact-value {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            color: var(--primary-green);
+            word-break: break-all;
+        }
+
+        /* =============================================
+           DISCLAIMER SECTION
+        ============================================= */
+        .disclaimer-box {
+            background: rgba(255, 0, 51, 0.03);
+            border: 1px solid rgba(255, 0, 51, 0.2);
+            border-radius: 10px;
+            padding: 40px;
+            max-width: 850px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .disclaimer-icon {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 20px;
+        }
+
+        .disclaimer-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            color: var(--accent-red);
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 0, 51, 0.5);
+        }
+
+        .disclaimer-text {
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.9;
+            text-align: center;
+        }
+
+        .disclaimer-text p {
+            margin-bottom: 12px;
+        }
+
+        /* =============================================
+           JOIN SECTION
+        ============================================= */
+        .join-section {
+            text-align: center;
+            padding: 100px 20px;
+        }
+
+        .join-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 70px 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .join-box::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(0, 255, 65, 0.05) 0%, transparent 70%);
+        }
+
+        .join-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(22px, 4vw, 36px);
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+            margin-bottom: 20px;
+        }
+
+        .join-description {
+            color: var(--text-secondary);
+            font-size: 17px;
+            line-height: 1.8;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .join-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* =============================================
+           FOOTER
+        ============================================= */
+        footer {
+            background: #000;
+            border-top: 1px solid var(--border-color);
+            padding: 50px 20px 30px;
+            position: relative;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 20px;
+            font-weight: 900;
+            color: var(--primary-green);
+            text-shadow: var(--glow-text);
+            margin-bottom: 10px;
+        }
+
+        .footer-tagline {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            color: var(--accent-cyan);
+            letter-spacing: 3px;
+            margin-bottom: 30px;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 1px;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-green);
+        }
+
+        .footer-divider {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+            margin-bottom: 20px;
+        }
+
+        .footer-bottom {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .footer-bottom .green {
+            color: var(--primary-green);
+        }
+
+        /* =============================================
+           BACK TO TOP BUTTON
+        ============================================= */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 45px;
+            height: 45px;
+            background: var(--primary-green);
+            color: var(--bg-dark);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .back-to-top:hover {
+            background: var(--accent-cyan);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-green);
+        }
+
+        /* =============================================
+           TYPING CURSOR ANIMATION
+        ============================================= */
+        .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--primary-green);
+            animation: blink-cursor 0.8s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+
+        @keyframes blink-cursor {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* =============================================
+           LOADING SCREEN
+        ============================================= */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-dark);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .loader-text {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 14px;
+            color: var(--primary-green);
+            letter-spacing: 3px;
+        }
+
+        .loader-bar {
+            width: 200px;
+            height: 2px;
+            background: var(--dark-green);
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .loader-fill {
+            height: 100%;
+            width: 0;
+            background: var(--primary-green);
+            animation: load 1.5s ease forwards;
+            box-shadow: 0 0 10px var(--primary-green);
+        }
+
+        @keyframes load {
+            to { width: 100%; }
+        }
+
+        /* =============================================
+           RESPONSIVE STYLES
+        ============================================= */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 65px;
+                left: 0;
+                right: 0;
+                background: rgba(2, 13, 2, 0.98);
+                padding: 20px;
+                border-bottom: 1px solid var(--border-color);
+                gap: 5px;
+            }
+
+            .nav-links.open {
+                display: flex;
+            }
+
+            .nav-toggle {
+                display: flex;
+            }
+
+            .about-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .terminal-body {
+                padding: 25px 20px;
+            }
+
+            .hero-stats {
+                gap: 30px;
+            }
+
+            .vision-box {
+                padding: 30px 20px;
+            }
+
+            .disclaimer-box {
+                padding: 25px 20px;
+            }
+
+            .join-box {
+                padding: 40px 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-title {
+                font-size: 24px;
+            }
+
+            .topics-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .btn {
+                padding: 12px 24px;
+                font-size: 11px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <div class="header">
-                <h1>💣 TNEH BOOMER</h1>
-                <p>SMS Bomber Tool</p>
-            </div>
 
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('bomber')">💣 BOMBER</button>
-                <button class="tab" onclick="switchTab('key')">🔑 GET KEY</button>
-                <button class="tab" onclick="switchTab('check')">✅ CHECK KEY</button>
-            </div>
-
-            <!-- Bomber Tab -->
-            <div id="bomberTab" class="tab-content active">
-                <div class="input-group">
-                    <label>🔑 API Key</label>
-                    <input type="text" id="apiKey" placeholder="Enter your API key">
-                </div>
-                <div class="input-group">
-                    <label>📱 Target Number</label>
-                    <input type="tel" id="phoneNumber" placeholder="017XXXXXXXX">
-                </div>
-                <div class="input-group">
-                    <label>💥 SMS Count (1-20)</label>
-                    <input type="number" id="smsCount" value="10" min="1" max="20">
-                </div>
-                <button onclick="startBombing()">💣 START BOMBING</button>
-                <div id="bombResult" class="result"></div>
-            </div>
-
-            <!-- Get Key Tab -->
-            <div id="keyTab" class="tab-content">
-                <button onclick="generateKey()">🔑 Generate 30-Day API Key</button>
-                <div id="keyResult" class="result"></div>
-            </div>
-
-            <!-- Check Key Tab -->
-            <div id="checkTab" class="tab-content">
-                <div class="input-group">
-                    <label>🔑 API Key</label>
-                    <input type="text" id="checkKeyInput" placeholder="Enter API key">
-                </div>
-                <button onclick="checkKey()">✅ Check Key Status</button>
-                <div id="checkResult" class="result"></div>
-            </div>
-
-            <div class="dev-info">
-                <p>👨‍💻 <strong>TNEH GROUP</strong> | 📱 <a href="https://t.me/tneh_owner" target="_blank">@tneh_owner</a></p>
-                <p>⚠️ For educational purposes only</p>
-            </div>
+    <!-- =============================================
+         LOADING SCREEN
+    ============================================= -->
+    <div id="loader">
+        <div class="loader-text">// INITIALIZING TNEH SYSTEM...</div>
+        <div class="loader-bar">
+            <div class="loader-fill"></div>
         </div>
+        <div class="loader-text" style="font-size:11px; opacity:0.5;">ETHICAL HACKER GROUP BD</div>
     </div>
 
+    <!-- =============================================
+         MATRIX RAIN CANVAS
+    ============================================= -->
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- =============================================
+         NAVIGATION BAR
+    ============================================= -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <!-- Logo -->
+            <a href="#home" class="nav-logo">
+                <div class="nav-logo-icon">TNEH</div>
+                <div class="nav-logo-text">
+                    TNEH
+                    <span>ETHICAL HACKER GROUP BD</span>
+                </div>
+            </a>
+
+            <!-- Navigation Links -->
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#about">About</a></li>
+                <li><a href="#mission">Mission</a></li>
+                <li><a href="#what-we-do">Topics</a></li>
+                <li><a href="#values">Values</a></li>
+                <li><a href="#team">Team</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><a href="#join">Join Us</a></li>
+            </ul>
+
+            <!-- Mobile Toggle -->
+            <div class="nav-toggle" id="navToggle" onclick="toggleNav()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- =============================================
+         MAIN CONTENT
+    ============================================= -->
+    <main class="main-wrapper">
+
+        <!-- ==================
+             HERO SECTION
+        ================== -->
+        <section class="hero" id="home">
+            <div class="hero-content">
+
+                <!-- Terminal window style -->
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                    <span class="terminal-title">root@tneh:~$ ./welcome.sh</span>
+                </div>
+
+                <div class="terminal-body">
+                    <!-- Animated shield logo (SVG) -->
+                    <div class="hero-shield">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Shield shape -->
+                            <path d="M50 5 L90 20 L90 55 Q90 80 50 95 Q10 80 10 55 L10 20 Z"
+                                  fill="none" stroke="#00ff41" stroke-width="2"
+                                  opacity="0.8"/>
+                            <path d="M50 15 L80 27 L80 53 Q80 73 50 85 Q20 73 20 53 L20 27 Z"
+                                  fill="rgba(0,255,65,0.05)" stroke="#00ff41" stroke-width="1"
+                                  opacity="0.5"/>
+                            <!-- Lock icon inside shield -->
+                            <rect x="38" y="50" width="24" height="20" rx="2"
+                                  fill="none" stroke="#00ff41" stroke-width="2"/>
+                            <path d="M42 50 L42 44 Q42 37 50 37 Q58 37 58 44 L58 50"
+                                  fill="none" stroke="#00ff41" stroke-width="2"/>
+                            <circle cx="50" cy="60" r="3" fill="#00ff41"/>
+                            <!-- Decorative elements -->
+                            <line x1="10" y1="20" x2="90" y2="20" stroke="#00ff41" stroke-width="0.5" opacity="0.3"/>
+                        </svg>
+                    </div>
+
+                    <!-- Badge -->
+                    <span class="hero-badge">🔒 ETHICAL &bull; SECURE &bull; RESPONSIBLE</span>
+
+                    <!-- Main title -->
+                    <h1 class="hero-title">
+                        <span class="highlight">TNEH</span> Ethical Hacker<br>Group <span class="highlight">BD</span>
+                    </h1>
+
+                    <!-- Subtitle with typing effect -->
+                    <p class="hero-subtitle">
+                        <span id="typed-text">CYBERSECURITY EDUCATION COMMUNITY</span>
+                        <span class="cursor"></span>
+                    </p>
+
+                    <!-- Description -->
+                    <p class="hero-description">
+                        Welcome to <strong style="color: var(--primary-green);">TNEH Ethical Hacker Group BD</strong> — a community dedicated to
+                        cybersecurity education, ethical hacking, digital security awareness, and responsible
+                        technology practices. We create a trusted environment where students, technology enthusiasts,
+                        and cybersecurity professionals can learn, collaborate, and grow.
+                    </p>
+
+                    <!-- CTA Buttons -->
+                    <div class="hero-buttons">
+                        <a href="#join" class="btn btn-primary">
+                            🚀 Join Community
+                        </a>
+                        <a href="#about" class="btn btn-outline">
+                            📖 Learn More
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">15+</span>
+                        <span class="stat-label">TOPICS COVERED</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">4</span>
+                        <span class="stat-label">TEAM LEADERS</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">9</span>
+                        <span class="stat-label">CORE VALUES</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">100%</span>
+                        <span class="stat-label">ETHICAL FOCUS</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==================
+             ABOUT SECTION
+        ================== -->
+        <section id="about">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// WHO WE ARE</span>
+                    <h2 class="section-title">About Us</h2>
+                    <div class="section-divider"></div>
+                </div>
+
+                <div class="about-grid">
+                    <!-- Text content -->
+                    <div class="about-text">
+                        <p>
+                            <strong style="color: var(--primary-green);">TNEH Ethical Hacker Group BD</strong> is an
+                            independent cybersecurity community focused on sharing knowledge, encouraging responsible
+                            security research, and promoting cybersecurity awareness across Bangladesh and beyond.
+                        </p>
+                        <p>
+                            We believe cybersecurity is essential for protecting individuals, organizations, and digital
+                            infrastructure. Through education and collaboration, we aim to help members develop practical
+                            skills and a strong understanding of defensive security concepts.
+                        </p>
+                        <p>
+                            Whether you are just starting your journey in cybersecurity or you are an experienced
+                            professional, TNEH provides a supportive space to learn, share, and grow together while
+                            maintaining the highest ethical and legal standards.
+                        </p>
+                        <a href="#join" class="btn btn-outline" style="margin-top: 10px;">Join Our Community →</a>
+                    </div>
+
+                    <!-- Visual: Code block -->
+                    <div class="about-visual">
+                        <div class="code-block">
+                            <div class="code-block-header">
+                                <div class="dots">
+                                    <span style="background:#ff5f57;"></span>
+                                    <span style="background:#ffbd2e;"></span>
+                                    <span style="background:#28ca41;"></span>
+                                </div>
+                                <span style="font-size:12px; color:#4a8a4a; font-family:'Share Tech Mono',monospace; margin-left:10px;">tneh_profile.py</span>
+                            </div>
+                            <div class="code-block-body">
+                                <div class="code-line">
+                                    <span class="code-num">1</span>
+                                    <span class="code-content"><span class="cm"># TNEH Community Profile</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">2</span>
+                                    <span class="code-content"></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">3</span>
+                                    <span class="code-content"><span class="kw">class</span> <span class="fn">TNEH</span>:</span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">4</span>
+                                    <span class="code-content">&nbsp;&nbsp;<span class="var">name</span> = <span class="str">"TNEH Ethical Hacker BD"</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">5</span>
+                                    <span class="code-content">&nbsp;&nbsp;<span class="var">type</span> = <span class="str">"Cybersecurity Community"</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">6</span>
+                                    <span class="code-content">&nbsp;&nbsp;<span class="var">country</span> = <span class="str">"Bangladesh 🇧🇩"</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">7</span>
+                                    <span class="code-content">&nbsp;&nbsp;<span class="var">focus</span> = <span class="str">"Ethical Hacking"</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">8</span>
+                                    <span class="code-content">&nbsp;&nbsp;<span class="var">legal</span> = <span class="fn">True</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">9</span>
+                                    <span class="code-content"></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">10</span>
+                                    <span class="code-content">&nbsp;&nbsp;<span class="kw">def</span> <span class="fn">mission</span>(self):</span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">11</span>
+                                    <span class="code-content">&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">return</span> <span class="str">"Educate & Protect"</span></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">12</span>
+                                    <span class="code-content"></span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">13</span>
+                                    <span class="code-content"><span class="var">tneh</span> = <span class="fn">TNEH</span>()</span>
+                                </div>
+                                <div class="code-line">
+                                    <span class="code-num">14</span>
+                                    <span class="code-content"><span class="fn">print</span>(<span class="var">tneh</span>.<span class="fn">mission</span>()) <span class="cm"># Educate & Protect</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             MISSION SECTION
+        ================== -->
+        <section id="mission">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// WHAT WE STAND FOR</span>
+                    <h2 class="section-title">Our Mission</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">We are committed to building a stronger cybersecurity community through education, ethics, and collaboration.</p>
+                </div>
+
+                <div class="mission-grid">
+
+                    <!-- Mission Card 1 -->
+                    <div class="mission-card">
+                        <span class="mission-icon">🛡️</span>
+                        <h3>Promote Awareness</h3>
+                        <p>Raise cybersecurity awareness among individuals, students, and organizations to build a safer digital environment.</p>
+                    </div>
+
+                    <!-- Mission Card 2 -->
+                    <div class="mission-card">
+                        <span class="mission-icon">⚖️</span>
+                        <h3>Ethical Hacking</h3>
+                        <p>Encourage ethical hacking conducted only with proper authorization, following all legal and moral guidelines.</p>
+                    </div>
+
+                    <!-- Mission Card 3 -->
+                    <div class="mission-card">
+                        <span class="mission-icon">🔍</span>
+                        <h3>Responsible Disclosure</h3>
+                        <p>Support responsible vulnerability disclosure practices that improve security without causing harm.</p>
+                    </div>
+
+                    <!-- Mission Card 4 -->
+                    <div class="mission-card">
+                        <span class="mission-icon">📚</span>
+                        <h3>Beginner Support</h3>
+                        <p>Help beginners learn cybersecurity fundamentals through structured resources and community mentorship.</p>
+                    </div>
+
+                    <!-- Mission Card 5 -->
+                    <div class="mission-card">
+                        <span class="mission-icon">🔬</span>
+                        <h3>Research & Resources</h3>
+                        <p>Share educational resources, security research, and practical knowledge with community members.</p>
+                    </div>
+
+                    <!-- Mission Card 6 -->
+                    <div class="mission-card">
+                        <span class="mission-icon">🇧🇩</span>
+                        <h3>Bangladesh Community</h3>
+                        <p>Build a stronger cybersecurity community in Bangladesh and encourage continuous professional development.</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             VISION SECTION
+        ================== -->
+        <section id="vision">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// WHERE WE ARE HEADING</span>
+                    <h2 class="section-title">Our Vision</h2>
+                    <div class="section-divider"></div>
+                </div>
+
+                <div class="vision-box">
+                    <p class="vision-text">
+                        Our vision is to become a <em>respected cybersecurity learning community</em> where people can
+                        gain knowledge, improve technical skills, and contribute to a
+                        <em>safer digital world</em> through ethical and responsible practices. We envision a Bangladesh
+                        where cybersecurity awareness is widespread, and individuals are empowered to protect
+                        themselves and others in the digital space — all through
+                        <em>education, collaboration, and integrity</em>.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             WHAT WE DO
+        ================== -->
+        <section id="what-we-do">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// OUR EDUCATIONAL TOPICS</span>
+                    <h2 class="section-title">What We Do</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">Our community focuses on a wide range of educational cybersecurity topics to help you grow.</p>
+                </div>
+
+                <!-- Topics grid -->
+                <div class="topics-grid">
+                    <div class="topic-item">
+                        <span class="topic-icon">🛡️</span>
+                        <span class="topic-name">Cybersecurity Awareness</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">💻</span>
+                        <span class="topic-name">Ethical Hacking Concepts</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🌐</span>
+                        <span class="topic-name">Web Security</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🔌</span>
+                        <span class="topic-name">Network Security</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🐧</span>
+                        <span class="topic-name">Linux Fundamentals</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">⌨️</span>
+                        <span class="topic-name">Programming for Security</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🐛</span>
+                        <span class="topic-name">Bug Bounty Learning</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🚩</span>
+                        <span class="topic-name">Capture The Flag (CTF)</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🔬</span>
+                        <span class="topic-name">Security Research</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🔒</span>
+                        <span class="topic-name">Digital Privacy</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🔑</span>
+                        <span class="topic-name">Password Security</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">⚠️</span>
+                        <span class="topic-name">Cyber Threat Awareness</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🦠</span>
+                        <span class="topic-name">Malware Analysis (Edu)</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">📝</span>
+                        <span class="topic-name">Secure Coding Practices</span>
+                    </div>
+                    <div class="topic-item">
+                        <span class="topic-icon">🚨</span>
+                        <span class="topic-name">Incident Response Basics</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             VALUES SECTION
+        ================== -->
+        <section id="values">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// OUR PRINCIPLES</span>
+                    <h2 class="section-title">Community Values</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">Our community is built on a strong foundation of principles that guide every member's actions and learning.</p>
+                </div>
+
+                <div class="values-container">
+
+                    <div class="value-card">
+                        <span class="value-number">01</span>
+                        <span class="value-emoji">✅</span>
+                        <div class="value-title">Integrity</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">02</span>
+                        <span class="value-emoji">💎</span>
+                        <div class="value-title">Honesty</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">03</span>
+                        <span class="value-emoji">👔</span>
+                        <div class="value-title">Professionalism</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">04</span>
+                        <span class="value-emoji">🤝</span>
+                        <div class="value-title">Respect</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">05</span>
+                        <span class="value-emoji">📖</span>
+                        <div class="value-title">Responsible Learning</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">06</span>
+                        <span class="value-emoji">👥</span>
+                        <div class="value-title">Teamwork</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">07</span>
+                        <span class="value-emoji">🧠</span>
+                        <div class="value-title">Knowledge Sharing</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">08</span>
+                        <span class="value-emoji">📈</span>
+                        <div class="value-title">Continuous Improvement</div>
+                    </div>
+
+                    <div class="value-card">
+                        <span class="value-number">09</span>
+                        <span class="value-emoji">⚖️</span>
+                        <div class="value-title">Legal Compliance</div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             WHY CHOOSE TNEH
+        ================== -->
+        <section id="why">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// OUR ADVANTAGES</span>
+                    <h2 class="section-title">Why Choose TNEH?</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">Discover what makes TNEH the right community for your cybersecurity learning journey.</p>
+                </div>
+
+                <div class="why-grid">
+
+                    <div class="why-card">
+                        <span class="why-icon">😊</span>
+                        <h3>Friendly Environment</h3>
+                        <p>A welcoming, supportive atmosphere where every member feels valued and encouraged to learn and grow.</p>
+                    </div>
+
+                    <div class="why-card">
+                        <span class="why-icon">💬</span>
+                        <h3>Educational Discussions</h3>
+                        <p>Focused cybersecurity discussions that are informative, professional, and always within ethical boundaries.</p>
+                    </div>
+
+                    <div class="why-card">
+                        <span class="why-icon">🌱</span>
+                        <h3>Beginner Friendly</h3>
+                        <p>Specially curated resources and guides for those just starting their cybersecurity journey.</p>
+                    </div>
+
+                    <div class="why-card">
+                        <span class="why-icon">🤲</span>
+                        <h3>Community Support</h3>
+                        <p>Get help from experienced members and our dedicated leadership team whenever you need guidance.</p>
+                    </div>
+
+                    <div class="why-card">
+                        <span class="why-icon">📡</span>
+                        <h3>Regular Knowledge Sharing</h3>
+                        <p>Consistent updates, tutorials, and insights shared by community members and leaders.</p>
+                    </div>
+
+                    <div class="why-card">
+                        <span class="why-icon">🎯</span>
+                        <h3>Legal & Ethical Focus</h3>
+                        <p>We prioritize responsible security mindset and always emphasize legal and ethical practices in everything we do.</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             RULES SECTION
+        ================== -->
+        <section id="rules">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// MEMBER GUIDELINES</span>
+                    <h2 class="section-title">Community Rules</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">Every member is expected to follow these rules to maintain a safe, respectful, and productive community.</p>
+                </div>
+
+                <div class="rules-container">
+
+                    <div class="rule-item">
+                        <span class="rule-number">01</span>
+                        <span class="rule-text">Respect all community members at all times, regardless of their skill level or background.</span>
+                    </div>
+
+                    <div class="rule-item">
+                        <span class="rule-number">02</span>
+                        <span class="rule-text">Follow applicable laws and regulations of your country and jurisdiction at all times.</span>
+                    </div>
+
+                    <div class="rule-item">
+                        <span class="rule-number">03</span>
+                        <span class="rule-text"><strong style="color:var(--accent-red)">Never</strong> attempt unauthorized access to systems, networks, or accounts of any kind.</span>
+                    </div>
+
+                    <div class="rule-item">
+                        <span class="rule-number">04</span>
+                        <span class="rule-text"><strong style="color:var(--accent-red)">Never</strong> engage in cybercrime, fraud, or any illegal activity within or outside the community.</span>
+                    </div>
+
+                    <div class="rule-item">
+                        <span class="rule-number">05</span>
+                        <span class="rule-text">Keep all discussions professional, educational, and constructive — no harmful or offensive content.</span>
+                    </div>
+
+                    <div class="rule-item">
+                        <span class="rule-number">06</span>
+                        <span class="rule-text">Respect privacy and confidentiality of all individuals and organizations at all times.</span>
+                    </div>
+
+                    <div class="rule-item">
+                        <span class="rule-number">07</span>
+                        <span class="rule-text">Report security vulnerabilities and issues responsibly through proper channels and disclosure practices.</span>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             LEADERSHIP TEAM
+        ================== -->
+        <section id="team">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// THE PEOPLE BEHIND TNEH</span>
+                    <h2 class="section-title">Leadership Team</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">Meet the dedicated individuals who lead and manage our community.</p>
+                </div>
+
+                <div class="team-grid">
+
+                    <!-- Owner -->
+                    <div class="team-card owner">
+                        <div class="team-avatar">👑</div>
+                        <span class="team-role">⭐ OWNER</span>
+                        <div class="team-name">Md Noman</div>
+                    </div>
+
+                    <!-- Administrator -->
+                    <div class="team-card">
+                        <div class="team-avatar">🛡️</div>
+                        <span class="team-role">🔧 ADMINISTRATOR</span>
+                        <div class="team-name">Fahim</div>
+                    </div>
+
+                    <!-- Moderator -->
+                    <div class="team-card">
+                        <div class="team-avatar">⚔️</div>
+                        <span class="team-role">📋 MODERATOR</span>
+                        <div class="team-name">Rakib</div>
+                    </div>
+
+                    <!-- Support Agent -->
+                    <div class="team-card">
+                        <div class="team-avatar">💬</div>
+                        <span class="team-role">🎯 SUPPORT AGENT</span>
+                        <div class="team-name">Shihub</div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             CONTACT SECTION
+        ================== -->
+        <section id="contact">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// GET IN TOUCH</span>
+                    <h2 class="section-title">Contact Information</h2>
+                    <div class="section-divider"></div>
+                    <p class="section-subtitle">Reach out to us through any of the following channels. We are here to help!</p>
+                </div>
+
+                <div class="contact-grid">
+
+                    <!-- Email -->
+                    <a href="mailto:tnehsupportagency@gmail.com" class="contact-card">
+                        <span class="contact-icon">📧</span>
+                        <div class="contact-info">
+                            <span class="contact-label">EMAIL</span>
+                            <div class="contact-value">tnehsupportagency@gmail.com</div>
+                        </div>
+                    </a>
+
+                    <!-- WhatsApp -->
+                    <a href="https://wa.me/8801611229803" target="_blank" rel="noopener noreferrer" class="contact-card">
+                        <span class="contact-icon">📱</span>
+                        <div class="contact-info">
+                            <span class="contact-label">WHATSAPP</span>
+                            <div class="contact-value">+880 1611-229803</div>
+                        </div>
+                    </a>
+
+                    <!-- Telegram -->
+                    <a href="https://t.me/tneh_owner" target="_blank" rel="noopener noreferrer" class="contact-card">
+                        <span class="contact-icon">✈️</span>
+                        <div class="contact-info">
+                            <span class="contact-label">TELEGRAM</span>
+                            <div class="contact-value">t.me/tneh_owner</div>
+                        </div>
+                    </a>
+
+                    <!-- Facebook -->
+                    <a href="https://facebook.com/tneh_owner" target="_blank" rel="noopener noreferrer" class="contact-card">
+                        <span class="contact-icon">📘</span>
+                        <div class="contact-info">
+                            <span class="contact-label">FACEBOOK</span>
+                            <div class="contact-value">tneh_owner</div>
+                        </div>
+                    </a>
+
+                    <!-- GitHub -->
+                    <a href="https://github.com/md3015237350" target="_blank" rel="noopener noreferrer" class="contact-card">
+                        <span class="contact-icon">💻</span>
+                        <div class="contact-info">
+                            <span class="contact-label">GITHUB</span>
+                            <div class="contact-value">md3015237350</div>
+                        </div>
+                    </a>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             DISCLAIMER
+        ================== -->
+        <section id="disclaimer">
+            <div class="container">
+                <div class="section-header">
+                    <span class="section-tag">// IMPORTANT NOTICE</span>
+                    <h2 class="section-title" style="color: var(--accent-red); text-shadow: 0 0 10px rgba(255,0,51,0.5);">Disclaimer</h2>
+                    <div class="section-divider" style="background: linear-gradient(90deg, transparent, var(--accent-red), transparent);"></div>
+                </div>
+
+                <div class="disclaimer-box">
+                    <div class="disclaimer-icon">⚠️</div>
+                    <h3 class="disclaimer-title">IMPORTANT LEGAL NOTICE</h3>
+                    <div class="disclaimer-text">
+                        <p>
+                            <strong>TNEH Ethical Hacker Group BD</strong> is a strictly educational community.
+                        </p>
+                        <p>
+                            We do <strong>not</strong> support, promote, or encourage illegal hacking, unauthorized access,
+                            cyberattacks, fraud, or any activity that violates the law or the rights of others.
+                        </p>
+                        <p>
+                            All information shared by the community is intended solely for <strong>educational purposes</strong>,
+                            authorized security testing, and responsible cybersecurity research.
+                        </p>
+                        <p>
+                            Members are fully responsible for ensuring that their activities comply with
+                            <strong>applicable laws</strong> and are performed only with proper authorization.
+                            TNEH and its leadership team bear no responsibility for the misuse of shared information.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================
+             JOIN SECTION
+        ================== -->
+        <section class="join-section" id="join">
+            <div class="container">
+                <div class="join-box">
+                    <span class="section-tag" style="margin-bottom:20px; display:block;">// BECOME A MEMBER</span>
+                    <h2 class="join-title">Join Our Community</h2>
+                    <p class="join-description">
+                        Whether you are a <strong style="color:var(--primary-green);">beginner</strong>,
+                        <strong style="color:var(--primary-green);">student</strong>,
+                        <strong style="color:var(--primary-green);">cybersecurity enthusiast</strong>, or
+                        <strong style="color:var(--primary-green);">experienced professional</strong>,
+                        you are welcome to join our community. Learn, collaborate, and grow your
+                        cybersecurity knowledge responsibly. Together, we can help create a
+                        safer and more secure digital future.
+                    </p>
+                    <div class="join-buttons">
+                        <a href="https://t.me/tneh_owner" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                            ✈️ Join on Telegram
+                        </a>
+                        <a href="https://wa.me/8801611229803" target="_blank" rel="noopener noreferrer" class="btn btn-outline">
+                            📱 Contact on WhatsApp
+                        </a>
+                        <a href="mailto:tnehsupportagency@gmail.com" class="btn btn-outline">
+                            📧 Send Email
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =============================================
+         FOOTER
+    ============================================= -->
+    <footer>
+        <div class="footer-content">
+
+            <!-- Logo & tagline -->
+            <div class="footer-logo">TNEH Ethical Hacker Group BD</div>
+            <div class="footer-tagline">Learn Ethically · Think Securely · Protect Responsibly</div>
+
+            <!-- Footer links -->
+            <div class="footer-links">
+                <a href="#home">Home</a>
+                <a href="#about">About</a>
+                <a href="#mission">Mission</a>
+                <a href="#vision">Vision</a>
+                <a href="#what-we-do">What We Do</a>
+                <a href="#values">Values</a>
+                <a href="#team">Team</a>
+                <a href="#rules">Rules</a>
+                <a href="#contact">Contact</a>
+                <a href="#disclaimer">Disclaimer</a>
+            </div>
+
+            <div class="footer-divider"></div>
+
+            <!-- Copyright -->
+            <div class="footer-bottom">
+                <p>
+                    &copy; <span id="year"></span>
+                    <span class="green">TNEH Ethical Hacker Group BD</span>.
+                    All rights reserved.
+                </p>
+                <p style="margin-top:8px; font-size:11px; opacity:0.5;">
+                    // This website is for educational purposes only. All activities must comply with applicable laws.
+                </p>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop" onclick="scrollToTop()" title="Back to top">↑</button>
+
+    <!-- =============================================
+         JAVASCRIPT
+    ============================================= -->
     <script>
-        // Use relative URL or current domain
-        const API_BASE = window.location.origin;
+        // ==============================================
+        // LOADING SCREEN
+        // ==============================================
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loader = document.getElementById('loader');
+                loader.style.transition = 'opacity 0.5s ease';
+                loader.style.opacity = '0';
+                setTimeout(function() {
+                    loader.style.display = 'none';
+                }, 500);
+            }, 1600);
+        });
 
-        function switchTab(tab) {
-            // Update tabs
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            if (tab === 'bomber') document.querySelector('.tab:first-child').classList.add('active');
-            else if (tab === 'key') document.querySelectorAll('.tab')[1].classList.add('active');
-            else document.querySelectorAll('.tab')[2].classList.add('active');
+        // ==============================================
+        // SET CURRENT YEAR IN FOOTER
+        // ==============================================
+        document.getElementById('year').textContent = new Date().getFullYear();
 
-            // Update content
-            document.getElementById('bomberTab').classList.remove('active');
-            document.getElementById('keyTab').classList.remove('active');
-            document.getElementById('checkTab').classList.remove('active');
-            document.getElementById(tab + 'Tab').classList.add('active');
+        // ==============================================
+        // MATRIX RAIN ANIMATION
+        // ==============================================
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas to window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Matrix characters
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%^&*()_+-=[]{}|;:,.<>?/\\~`TNEH';
+        const fontSize = 14;
+
+        let columns = Math.floor(canvas.width / fontSize);
+        let drops = [];
+
+        // Initialize drops
+        for (let i = 0; i < columns; i++) {
+            drops[i] = Math.random() * -100;
         }
 
-        async function generateKey() {
-            const resultDiv = document.getElementById('keyResult');
-            resultDiv.innerHTML = '<div class="info">⏳ Generating key...</div>';
-            resultDiv.classList.add('show');
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/expiredate=30&createkey`);
-                const data = await response.json();
-                
-                console.log('Key generation response:', data);
-                
-                if (data.success) {
-                    resultDiv.innerHTML = `
-                        <div class="success">
-                            <strong>✅ Key Generated Successfully!</strong>
-                            <div class="key-badge">${data.api_key}</div>
-                            <strong>📅 Valid for:</strong> ${data.valid_days} days<br>
-                            <strong>⏰ Expires:</strong> ${new Date(data.expiry_date).toLocaleString()}
-                            <button class="small-btn" onclick="copyKey('${data.api_key}')">📋 Copy Key</button>
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<div class="error">❌ ${data.error || 'Failed to generate key'}</div>`;
+        function drawMatrix() {
+            // Fade effect
+            ctx.fillStyle = 'rgba(2, 13, 2, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#00ff41';
+            ctx.font = fontSize + 'px Share Tech Mono';
+
+            columns = Math.floor(canvas.width / fontSize);
+
+            for (let i = 0; i < drops.length; i++) {
+                const char = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+
+                // Reset drop to top with random delay
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                resultDiv.innerHTML = `<div class="error">❌ Connection error: ${error.message}<br>Make sure the server is running</div>`;
+                drops[i]++;
             }
         }
 
-        async function checkKey() {
-            const key = document.getElementById('checkKeyInput').value;
-            const resultDiv = document.getElementById('checkResult');
-            
-            if (!key) {
-                resultDiv.innerHTML = `<div class="error">❌ Please enter API key</div>`;
-                resultDiv.classList.add('show');
-                return;
+        // Run matrix animation
+        setInterval(drawMatrix, 50);
+
+        // ==============================================
+        // MOBILE NAV TOGGLE
+        // ==============================================
+        function toggleNav() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('open');
+        }
+
+        // Close nav on link click (mobile)
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', function() {
+                document.getElementById('navLinks').classList.remove('open');
+            });
+        });
+
+        // ==============================================
+        // BACK TO TOP BUTTON
+        // ==============================================
+        window.addEventListener('scroll', function() {
+            const btn = document.getElementById('backToTop');
+            if (window.scrollY > 400) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
             }
-            
-            resultDiv.innerHTML = '<div class="info">⏳ Checking key status...</div>';
-            resultDiv.classList.add('show');
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/checkkey?key=${key}`);
-                const data = await response.json();
-                
-                console.log('Check key response:', data);
-                
-                if (data.valid) {
-                    resultDiv.innerHTML = `
-                        <div class="success">
-                            <strong>✅ Key is VALID</strong><br>
-                            <strong>📅 Expires:</strong> ${new Date(data.expiry_date).toLocaleString()}<br>
-                            <strong>Status:</strong> ${data.status}
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<div class="error">❌ Key is INVALID or EXPIRED</div>`;
+        });
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ==============================================
+        // TYPING EFFECT FOR HERO SUBTITLE
+        // ==============================================
+        const phrases = [
+            'CYBERSECURITY EDUCATION COMMUNITY',
+            'LEARN ETHICALLY. THINK SECURELY.',
+            'PROTECTING THE DIGITAL WORLD',
+            'ETHICAL HACKING GROUP BD',
+            'RESPONSIBLE SECURITY RESEARCH'
+        ];
+        let phraseIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        const typedEl = document.getElementById('typed-text');
+
+        function typeEffect() {
+            const currentPhrase = phrases[phraseIndex];
+
+            if (!isDeleting) {
+                // Typing
+                typedEl.textContent = currentPhrase.slice(0, charIndex + 1);
+                charIndex++;
+                if (charIndex === currentPhrase.length) {
+                    isDeleting = true;
+                    setTimeout(typeEffect, 2000); // Wait before deleting
+                    return;
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                resultDiv.innerHTML = `<div class="error">❌ Connection error: ${error.message}</div>`;
-            }
-        }
-
-        async function startBombing() {
-            const key = document.getElementById('apiKey').value;
-            const number = document.getElementById('phoneNumber').value;
-            const count = document.getElementById('smsCount').value;
-            const resultDiv = document.getElementById('bombResult');
-            
-            if (!key) {
-                resultDiv.innerHTML = `<div class="error">❌ Please enter API Key</div>`;
-                resultDiv.classList.add('show');
-                return;
-            }
-            
-            if (!number) {
-                resultDiv.innerHTML = `<div class="error">❌ Please enter target number</div>`;
-                resultDiv.classList.add('show');
-                return;
-            }
-            
-            resultDiv.innerHTML = '<div class="info">⏳ Sending SMS bombs... Please wait...</div>';
-            resultDiv.classList.add('show');
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/spam?key=${key}&number=${number}&count=${count}`);
-                const data = await response.json();
-                
-                console.log('Bombing response:', data);
-                
-                if (data.success) {
-                    resultDiv.innerHTML = `
-                        <div class="success">
-                            <strong>✅ Bombing Complete!</strong><br>
-                            📱 Target: ${data.target_number}<br>
-                            💥 Total Sent: ${data.total_requests_sent}<br>
-                            ✅ Successful: ${data.successful_requests}<br>
-                            ❌ Failed: ${data.failed_requests}
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+            } else {
+                // Deleting
+                typedEl.textContent = currentPhrase.slice(0, charIndex - 1);
+                charIndex--;
+                if (charIndex === 0) {
+                    isDeleting = false;
+                    phraseIndex = (phraseIndex + 1) % phrases.length;
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                resultDiv.innerHTML = `<div class="error">❌ Connection error: ${error.message}</div>`;
             }
+
+            setTimeout(typeEffect, isDeleting ? 50 : 100);
         }
 
-        function copyKey(key) {
-            navigator.clipboard.writeText(key);
-            alert('✅ API Key copied to clipboard!');
+        // Start typing effect after loader
+        setTimeout(typeEffect, 2000);
+
+        // ==============================================
+        // SCROLL REVEAL ANIMATION
+        // Uses Intersection Observer for fade-in effect
+        // ==============================================
+        const animateElements = document.querySelectorAll(
+            '.mission-card, .topic-item, .value-card, .why-card, .rule-item, .team-card, .contact-card'
+        );
+
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = entry.target.classList.contains('rule-item')
+                        ? 'translateX(0)'
+                        : entry.target.classList.contains('topic-item')
+                        ? 'translateX(0)'
+                        : 'translateY(0)';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        // Set initial state and observe
+        animateElements.forEach(function(el, index) {
+            el.style.opacity = '0';
+            el.style.transition = `opacity 0.6s ease ${index * 0.05}s, transform 0.6s ease ${index * 0.05}s`;
+
+            if (el.classList.contains('rule-item') || el.classList.contains('topic-item')) {
+                el.style.transform = 'translateX(-20px)';
+            } else {
+                el.style.transform = 'translateY(20px)';
+            }
+
+            observer.observe(el);
+        });
+
+        // ==============================================
+        // ACTIVE NAV LINK HIGHLIGHTING
+        // ==============================================
+        const sections = document.querySelectorAll('section[id]');
+        const navAnchors = document.querySelectorAll('.nav-links a');
+
+        window.addEventListener('scroll', function() {
+            let current = '';
+            sections.forEach(function(section) {
+                const sectionTop = section.offsetTop - 100;
+                if (window.scrollY >= sectionTop) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navAnchors.forEach(function(anchor) {
+                anchor.style.color = '';
+                anchor.style.textShadow = '';
+                if (anchor.getAttribute('href') === '#' + current) {
+                    anchor.style.color = 'var(--primary-green)';
+                    anchor.style.textShadow = 'var(--glow-text)';
+                }
+            });
+        });
+
+        // ==============================================
+        // GLITCH EFFECT ON HERO TITLE (RANDOM)
+        // ==============================================
+        const heroTitle = document.querySelector('.hero-title');
+        if (heroTitle) {
+            setInterval(function() {
+                if (Math.random() > 0.92) {
+                    heroTitle.style.textShadow = '2px 0 var(--accent-cyan), -2px 0 var(--accent-red)';
+                    setTimeout(function() {
+                        heroTitle.style.textShadow = 'var(--glow-text)';
+                    }, 100);
+                }
+            }, 1500);
+        }
+
+        // ==============================================
+        // STAT NUMBER COUNTER ANIMATION
+        // ==============================================
+        function animateCounter(el, target, suffix) {
+            let current = 0;
+            const increment = target / 50;
+            const timer = setInterval(function() {
+                current += increment;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                el.textContent = Math.floor(current) + suffix;
+            }, 30);
+        }
+
+        // Observe stats section
+        const statsSection = document.querySelector('.hero-stats');
+        if (statsSection) {
+            const statsObserver = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        animateCounter(document.querySelectorAll('.stat-number')[0], 15, '+');
+                        animateCounter(document.querySelectorAll('.stat-number')[1], 4, '');
+                        animateCounter(document.querySelectorAll('.stat-number')[2], 9, '');
+                        document.querySelectorAll('.stat-number')[3].textContent = '100%';
+                        statsObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            statsObserver.observe(statsSection);
         }
     </script>
+
 </body>
 </html>
