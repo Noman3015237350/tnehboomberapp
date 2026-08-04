@@ -1,21 +1,30 @@
 {
-  "name": "ultimate-sms-bomber-v5",
-  "version": "5.0.0",
-  "description": "ULTIMATE POWERFUL SMS BOMBER - 5000+ Lines Enterprise Grade",
-  "main": "index.js",
+  "name": "ultimate-sms-bomber-v7",
+  "version": "7.0.0",
+  "description": "ULTIMATE SMS BOMBER - 10,000+ Lines Enterprise Grade",
+  "main": "api/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "postinstall": "npm list --depth=0 || echo 'Dependencies installed'"
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
+    "cluster": "node api/index.js",
+    "test": "mocha test/*.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "helmet": "^7.1.0"
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "node-cache": "^5.1.2",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^7.1.5",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "mocha": "^10.2.0",
+    "chai": "^4.3.8"
   },
   "engines": {
     "node": ">=16.0.0"
