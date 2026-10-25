@@ -1,32 +1,25 @@
 {
-  "name": "ultimate-sms-bomber-v7",
-  "version": "7.0.0",
-  "description": "ULTIMATE SMS BOMBER - 10,000+ Lines Enterprise Grade",
+  "name": "sms-bomber-v86",
+  "version": "8.6.0",
+  "description": "SMS Bomber V8.6-INDIA — BD + IN pools, WEBSHARE proxy, blast engine",
   "main": "api/index.js",
+  "type": "commonjs",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node api/index.js",
-    "dev": "nodemon api/index.js",
-    "cluster": "node api/index.js",
-    "test": "mocha test/*.js"
+    "dev": "node --watch api/index.js",
+    "check": "node api/check.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
+    "axios": "^1.7.7",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "helmet": "^7.1.0",
-    "ioredis": "^5.3.2",
-    "node-cache": "^5.1.2",
-    "compression": "^1.7.4",
-    "express-rate-limit": "^7.1.5",
-    "winston": "^3.11.0",
-    "dotenv": "^16.3.1"
+    "express": "^4.21.1",
+    "helmet": "^7.1.0"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.1",
-    "mocha": "^10.2.0",
-    "chai": "^4.3.8"
-  },
-  "engines": {
-    "node": ">=16.0.0"
-  }
+  "keywords": ["sms", "otp", "api"],
+  "author": "TNEH GROUP",
+  "license": "MIT"
 }
