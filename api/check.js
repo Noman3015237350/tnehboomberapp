@@ -1,186 +1,151 @@
-#!/usr/bin/env node
-// api/check.js — probe every API in SMS_APIS once, rank live vs dead
-// usage: node api/check.js [--phone 01712345678] [--concurrency 40] [--timeout 8000]
-// writes: api/check-report.json  (per-API result)
-// prints: live / total / dead summary + top 40 live
-
-const path = require('path');
-const fs = require('fs');
-const https = require('https');
+// ============================================================
+// api/proxy.js — WEBSHARE proxy pool + agents
+// ============================================================
 const http = require('http');
-const axios = require('axios');
+const https = require('https');
+const net = require('net');
+const tls = require('tls');
 
-// pull SMS_APIS out of index.js without starting express
-const MOD = require('./index.js');
-const SMS_APIS = MOD.SMS_APIS;
+const RAW_PROXIES = [
+  '45.38.107.97:6014:rzghlmjq:cdujuj74ccnx',
+  '64.137.96.74:6641:rzghlmjq:cdujuj74ccnx',
+  '198.23.243.226:6361:rzghlmjq:cdujuj74ccnx',
+  '38.154.185.97:6370:rzghlmjq:cdujuj74ccnx',
+  '84.247.60.125:6095:rzghlmjq:cdujuj74ccnx',
+  '191.96.254.138:6185:rzghlmjq:cdujuj74ccnx',
+  '198.46.161.42:5092:rzghlmjq:cdujuj74ccnx',
+  '64.137.10.153:5803:rzghlmjq:cdujuj74ccnx',
+  '104.164.49.38:7693:rzghlmjq:cdujuj74ccnx',
+  '23.26.71.145:5628:rzghlmjq:cdujuj74ccnx'
+];
 
-const ARGS = process.argv.slice(2);
-function arg(name, def) {
-  const i = ARGS.indexOf('--' + name);
-  return i >= 0 ? ARGS[i + 1] : def;
+class ProxyPool {
+  constructor(raw) {
+    this.proxies = raw.map((line, idx) => {
+      const [host, port, username, password] = line.split(':');
+      return {
+        id: idx, host, port: parseInt(port, 10), username, password,
+        auth: Buffer.from(`${username}:${password}`).toString('base64'),
+        failures: 0, success: 0, disabled: false, lastError: null, lastUsed: null
+      };
+    });
+    this.cursor = 0;
+    this.maxFailures = 5;
+  }
+  next() {
+    const live = this.proxies.filter(p => !p.disabled);
+    if (!live.length) return null;
+    const p = live[this.cursor % live.length];
+    this.cursor = (this.cursor + 1) % Math.max(1, live.length);
+    p.lastUsed = Date.now();
+    return p;
+  }
+  report(proxy, ok, err = null) {
+    if (!proxy) return;
+    if (ok) { proxy.success++; proxy.failures = 0; }
+    else {
+      proxy.failures++;
+      proxy.lastError = err ? String(err).slice(0, 120) : 'error';
+      if (proxy.failures >= this.maxFailures) proxy.disabled = true;
+    }
+  }
+  snapshot() {
+    return this.proxies.map(p => ({
+      id: p.id, host: p.host, port: p.port, success: p.success,
+      failures: p.failures, disabled: p.disabled,
+      lastError: p.lastError, lastUsed: p.lastUsed
+    }));
+  }
+  stats() {
+    const live = this.proxies.filter(p => !p.disabled).length;
+    return {
+      total: this.proxies.length, live, dead: this.proxies.length - live,
+      ok_calls: this.proxies.reduce((s, p) => s + p.success, 0),
+      failed_calls: this.proxies.reduce((s, p) => s + p.failures, 0)
+    };
+  }
 }
 
-const PHONE   = (arg('phone', '01712345678') || '').replace(/[^0-9]/g, '');
-const CONC    = parseInt(arg('concurrency', '40'), 10);
-const TIMEOUT = parseInt(arg('timeout', '8000'), 10);
-const OUT     = path.resolve(__dirname, arg('out', 'check-report.json'));
+const proxyPool = new ProxyPool(RAW_PROXIES);
 
-const HTTPS_AGENT = new https.Agent({ keepAlive: true, maxSockets: 512, rejectUnauthorized: false });
-const HTTP_AGENT  = new http.Agent({ keepAlive: true, maxSockets: 512 });
-
-const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36';
-
-function buildBody(api, phone) {
-  const now = new Date().toISOString().slice(0, 19);
-  const rand = () => Math.random().toString(36).slice(2, 12);
-  const expand = (o) => {
-    if (o === null || o === undefined) return o;
-    if (Array.isArray(o)) return o.map(expand);
-    if (typeof o === 'object') {
-      const out = {};
-      for (const [k, v] of Object.entries(o)) out[k] = expand(v);
-      return out;
+function tunnelAgent(proxy) {
+  return new https.Agent({
+    keepAlive: true, maxSockets: 256, maxFreeSockets: 128,
+    timeout: 15000, scheduling: 'fifo', rejectUnauthorized: false,
+    createConnection: (opts, cb) => {
+      const host = opts.host, port = opts.port || 443;
+      const sock = net.connect(proxy.port, proxy.host);
+      let connected = false;
+      sock.once('connect', () => {
+        connected = true;
+        sock.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\nProxy-Authorization: Basic ${proxy.auth}\r\n\r\n`);
+      });
+      let buf = '';
+      const onData = (chunk) => {
+        buf += chunk.toString('latin1');
+        const idx = buf.indexOf('\r\n\r\n');
+        if (idx < 0) return;
+        sock.removeListener('data', onData);
+        const head = buf.slice(0, idx);
+        const rest = buf.slice(idx + 4);
+        const status = parseInt(head.split(' ')[1], 10);
+        if (status !== 200) { sock.destroy(); return cb(new Error(`proxy CONNECT ${status}`)); }
+        if (rest) sock.unshift(Buffer.from(rest, 'latin1'));
+        const secure = tls.connect({ socket: sock, servername: host, rejectUnauthorized: false });
+        secure.once('secureConnect', () => cb(null, secure));
+        secure.once('error', (e) => cb(e));
+      };
+      sock.on('data', onData);
+      sock.once('error', (e) => { if (!connected) cb(e); });
     }
-    if (typeof o === 'string') {
-      return o
-        .replace(/{phone}/g, phone)
-        .replace(/{phone_e164}/g, '88' + phone)
-        .replace(/{phone_10}/g, phone.slice(-10))
-        .replace(/{count}/g, '1')
-        .replace(/{ts}/g, String(Date.now()))
-        .replace(/{name}/g, 'Test')
-        .replace(/{firstName}/g, 'Test')
-        .replace(/{lastName}/g, 'Khan')
-        .replace(/{email}/g, rand() + '@gmail.com')
-        .replace(/{device}/g, rand())
-        .replace(/randomName/g, 'Test')
-        .replace(/randomEmail/g, rand() + '@gmail.com')
-        .replace(/currentTime/g, String(Date.now()))
-        .replace(/\bnow\b/g, now);
-    }
-    return o;
-  };
-  return expand(api.body);
+  });
 }
 
-async function probe(api) {
-  const start = Date.now();
-  let url = typeof api.url === 'string' ? api.url : '';
-  url = url
-    .replace(/{phone}/g, PHONE)
-    .replace(/{phone_e164}/g, '88' + PHONE)
-    .replace(/{phone_10}/g, PHONE.slice(-10))
-    .replace(/{count}/g, '1')
-    .replace(/{ts}/g, String(Date.now()));
+function plainProxyAgent(proxy) {
+  return new http.Agent({
+    keepAlive: true, maxSockets: 256, maxFreeSockets: 128, timeout: 15000, scheduling: 'fifo',
+    createConnection: (opts, cb) => {
+      const host = opts.host, port = opts.port || 80;
+      const sock = net.connect(proxy.port, proxy.host);
+      sock.once('connect', () => {
+        sock.write(`CONNECT ${host}:${port} HTTP/1.1\r\nHost: ${host}:${port}\r\nProxy-Authorization: Basic ${proxy.auth}\r\n\r\n`);
+      });
+      let buf = '';
+      const onData = (chunk) => {
+        buf += chunk.toString('latin1');
+        const idx = buf.indexOf('\r\n\r\n');
+        if (idx < 0) return;
+        sock.removeListener('data', onData);
+        const rest = buf.slice(idx + 4);
+        const status = parseInt(buf.slice(0, idx).split(' ')[1], 10);
+        if (status !== 200) { sock.destroy(); return cb(new Error(`proxy CONNECT ${status}`)); }
+        if (rest) sock.unshift(Buffer.from(rest, 'latin1'));
+        cb(null, sock);
+      };
+      sock.on('data', onData);
+      sock.once('error', (e) => cb(e));
+    }
+  });
+}
 
-  const headers = Object.assign(
-    { 'User-Agent': UA, 'Accept': 'application/json, text/plain, */*' },
-    api.headers || {}
-  );
+const DIRECT_HTTPS = new https.Agent({ keepAlive: true, maxSockets: 2048, maxFreeSockets: 512, timeout: 12000, rejectUnauthorized: false });
+const DIRECT_HTTP  = new http.Agent({ keepAlive: true, maxSockets: 2048, maxFreeSockets: 512, timeout: 12000 });
 
+function agentsFor(url) {
   const isHttps = url.startsWith('https://');
-  const cfg = {
-    method: api.method || 'GET',
-    url,
-    headers,
-    timeout: api.timeout || TIMEOUT,
-    validateStatus: () => true,
-    httpsAgent: isHttps ? HTTPS_AGENT : undefined,
-    httpAgent: !isHttps ? HTTP_AGENT : undefined,
-    maxRedirects: 3
-  };
-
-  if (cfg.method === 'POST') {
-    const body = buildBody(api, PHONE);
-    if (typeof body === 'string') {
-      cfg.data = body;
-    } else if (api.isFormData) {
-      cfg.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      cfg.data = new URLSearchParams(body).toString();
-    } else {
-      cfg.data = body;
-    }
+  const p = proxyPool.next();
+  if (!p) {
+    return {
+      httpsAgent: isHttps ? DIRECT_HTTPS : undefined,
+      httpAgent: !isHttps ? DIRECT_HTTP : undefined,
+      proxy: null
+    };
   }
-
-  let status = null, errorMsg = null, bodyLen = 0, preview = '';
-  try {
-    const r = await axios(cfg);
-    status = r.status;
-    const txt = typeof r.data === 'string' ? r.data : JSON.stringify(r.data || {});
-    bodyLen = txt.length;
-    preview = txt.slice(0, 200);
-  } catch (e) {
-    errorMsg = (e.code || e.message || 'ERR').slice(0, 120);
-    status = e.response ? e.response.status : null;
-  }
-  const ms = Date.now() - start;
-
-  // "live" heuristic:
-  //   status 2xx/3xx -> live
-  //   status 4xx -> live-but-rejected (endpoint exists, input rejected)
-  //   status 5xx or network err/timeout -> dead
-  let verdict = 'dead';
-  if (status && status >= 200 && status < 400) verdict = 'live';
-  else if (status && status >= 400 && status < 500) verdict = 'reachable';
-  else if (!status && errorMsg && /ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(errorMsg)) verdict = 'dead';
-
   return {
-    id: api.id, name: api.name, method: api.method || 'GET',
-    url, status, ms, verdict, error: errorMsg,
-    bodyLen, preview
+    httpsAgent: isHttps ? tunnelAgent(p) : undefined,
+    httpAgent: !isHttps ? plainProxyAgent(p) : undefined,
+    proxy: p
   };
 }
 
-async function run() {
-  console.log(`probing ${SMS_APIS.length} APIs  phone=${PHONE}  conc=${CONC}  timeout=${TIMEOUT}ms\n`);
-  const results = [];
-  let idx = 0;
-  let done = 0;
-
-  async function worker() {
-    while (idx < SMS_APIS.length) {
-      const api = SMS_APIS[idx++];
-      const r = await probe(api);
-      results.push(r);
-      done++;
-      if (done % 25 === 0 || done === SMS_APIS.length) {
-        process.stdout.write(`  ${done}/${SMS_APIS.length}\r`);
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(CONC, SMS_APIS.length) }, worker));
-  process.stdout.write('\n');
-
-  const live      = results.filter(r => r.verdict === 'live');
-  const reachable = results.filter(r => r.verdict === 'reachable');
-  const dead      = results.filter(r => r.verdict === 'dead');
-
-  const summary = {
-    phone: PHONE,
-    total: results.length,
-    live: live.length,
-    reachable: reachable.length,
-    dead: dead.length,
-    runAt: new Date().toISOString(),
-    results
-  };
-  fs.writeFileSync(OUT, JSON.stringify(summary, null, 2));
-  console.log(`\n== summary ==`);
-  console.log(`total     ${results.length}`);
-  console.log(`live      ${live.length}      (2xx/3xx)`);
-  console.log(`reachable ${reachable.length}      (4xx — endpoint exists, rejected input)`);
-  console.log(`dead      ${dead.length}      (5xx / no route / timeout)`);
-  console.log(`\nreport:   ${OUT}\n`);
-
-  const bySpeed = [...live].sort((a, b) => a.ms - b.ms);
-  console.log(`== top live (fastest) ==`);
-  for (const r of bySpeed.slice(0, 40)) {
-    console.log(`  ${String(r.ms).padStart(5)}ms  ${String(r.status)}  #${r.id}  ${r.name}`);
-  }
-  if (live.length > 40) console.log(`  … +${live.length - 40} more in ${OUT}`);
-
-  const byName = results.sort((a, b) => a.id - b.id);
-  fs.writeFileSync(OUT, JSON.stringify({ ...summary, results: byName }, null, 2));
-}
-
-run().catch(e => { console.error('fatal:', e); process.exit(1); });
+module.exports = { proxyPool, agentsFor };
