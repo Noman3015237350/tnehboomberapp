@@ -15,7 +15,7 @@ const CONFIG = {
   security: { rateLimit: { enabled: false } }
 };
 
-const DEVELOPER_INFO = { developer: "Hasib Hossen & TNEH GROUP", telegram: "@tneh_owner", api_version: "8.6.0-SINGLE" };
+const DEVELOPER_INFO = { developer: "TNEH GROUP", telegram: "@tneh_owner", api_version: "8.6.0-SINGLE" };
 const ERROR_MESSAGES = { MISSING_PARAM: 'Missing parameter', INVALID_PHONE: 'Invalid phone', INVALID_API_KEY: 'Invalid key', JOB_NOT_FOUND: 'Job not found' };
 
 class Utility {
